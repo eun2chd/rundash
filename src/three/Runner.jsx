@@ -185,8 +185,7 @@ export default function Runner({
         </group>
       </group>
 
-      {activity && <Html position={[0, 1.95, 0]} center distanceFactor={inPlace ? 4 : 9} zIndexRange={[19, 0]} style={{ pointerEvents: 'none' }}><div ref={activityTag} className={`runner-activity ${inPlace ? 'preview-activity' : ''}`}><ActivityBubble activity={activity} /></div></Html>}
-      {(nickname || CheerIcon) && (
+      {(nickname || CheerIcon || activity) && (
         <Html position={[0, 2.35, 0]} center distanceFactor={inPlace ? 4 : 9} zIndexRange={[20, 0]} style={{ pointerEvents: 'none' }}>
           <div ref={tag} className="tag-wrap">
             {CheerIcon && (
@@ -194,12 +193,15 @@ export default function Runner({
                 <CheerIcon />
               </div>
             )}
+            <div className="runner-nameplate">
             {nickname && (
               <div className={`nametag ${isMe ? 'me' : ''}`}>
                 <span className="dot" style={{ background: color }} />
                 {nickname}
               </div>
             )}
+            {activity && <div ref={activityTag} className={`runner-activity ${inPlace ? 'preview-activity' : ''}`}><ActivityBubble activity={activity} /></div>}
+            </div>
           </div>
         </Html>
       )}
