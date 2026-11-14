@@ -321,7 +321,7 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
       if (exitPending.current || manualPending.current || e.repeat || e.target.closest('input, textarea, select, [contenteditable="true"], .runner-chat')) return
       const h = handlers.current
       if (e.code === 'Space') { e.preventDefault(); h.hitBeat() }
-      else if (e.code === 'KeyC') h.cheer()
+      else if (import.meta.env.DEV && e.code === 'KeyC') h.cheer()
       else if (e.code === 'KeyE') h.collectNearest()
       else if (e.code === 'KeyB') h.boost()
       else if (e.code === 'KeyP' || e.code === 'Escape') h.togglePause()
@@ -379,7 +379,7 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
     }
     if (s.stamina / s.maxStamina >= .35) flags.current.low = false
 
-    if (!s.paused && !s.resting && Math.random() < 0.015) {
+    if (import.meta.env.DEV && !s.paused && !s.resting && Math.random() < 0.015) {
       const n = nearestGhost()
       if (n) {
         setCheers((c) => ({ ...c, me: { icon: 'flame', at: Date.now() } }))
@@ -452,7 +452,7 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
         />
       ) : (
         <div className="run-loading">
-          <Loading text="코스와 보급소를 준비하고 있어요." sub={`${ghosts.length}명이 같은 코스에서 기다리고 있어요.`} />
+          <Loading text="코스와 보급소를 준비하고 있어요." sub={import.meta.env.DEV ? `테스트 AI 러너 ${ghosts.length}명이 같은 코스에서 기다리고 있어요.` : undefined} />
         </div>
       )}
     </div>

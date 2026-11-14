@@ -1,11 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { api } from './lib/api'
 import Login from './screens/Login'
-import SignUp from './screens/SignUp'
-import CharacterCreate from './screens/CharacterCreate'
-import RunSetup from './screens/RunSetup'
-import RunScreen from './screens/RunScreen'
-import Result from './screens/Result'
 import Loading from './components/Loading'
 import Header from './components/Header'
 import AccountHelp from './screens/AccountHelp'
@@ -15,10 +10,17 @@ import { trainingFor } from './lib/progression'
 import ConfirmDialog from './components/ConfirmDialog'
 import useConfirmation from './lib/useConfirmation'
 import ManualDialog from './components/ManualDialog'
-import MyPage from './screens/MyPage'
 import Support from './screens/Support'
-import Admin from './screens/Admin'
 import { configureSettings, getSettings } from './lib/settings'
+
+
+const SignUp = lazy(() => import('./screens/SignUp'))
+const CharacterCreate = lazy(() => import('./screens/CharacterCreate'))
+const RunSetup = lazy(() => import('./screens/RunSetup'))
+const RunScreen = lazy(() => import('./screens/RunScreen'))
+const Result = lazy(() => import('./screens/Result'))
+const MyPage = lazy(() => import('./screens/MyPage'))
+const Admin = lazy(() => import('./screens/Admin'))
 
 const SCREEN_NAMES = { admin: '관리자', support: '문의하기', mypage: '마이페이지', login: '로그인', signup: '회원가입', character: '러너 만들기', setup: '러닝 설정', 'forgot-password': '비밀번호 찾기', 'verify-email': '이메일 재인증', result: '러닝 결과' }
 
@@ -197,6 +199,7 @@ export default function App() {
       {question && <ConfirmDialog {...question} onAnswer={answer} />}
       {manualOpen && <ManualDialog onClose={closeManual} />}
       <main className="app-content">
+      <Suspense fallback={<Loading text="화면을 준비하고 있어요." />}>
       {screen === 'loading' && <Loading text="러너를 깨우고 있어요." />}
       {error && screen !== 'saving' && <div className="app-error" role="alert">{error}<button className="link" onClick={() => setError('')}>닫기</button></div>}
       {screen === 'saving' && (saving ? <Loading text="러닝 기록을 저장하고 있어요." /> : <div className="loading-screen"><p role="alert">기록을 저장하지 못했어요. {error}</p><button className="btn primary" onClick={() => finishRun(pendingRun, pendingDestination.current)}>다시 저장하기</button></div>)}
@@ -223,6 +226,7 @@ export default function App() {
       {screen === 'mypage' && user && <MyPage user={user} profile={profile} onProfile={setProfile} confirmAction={confirm} onNavigate={navigate} />}
       {screen === 'support' && user && <Support suspended={account.suspended} />}
       {screen === 'admin' && account.admin && <Admin confirmAction={confirm} />}
+      </Suspense>
       </main>
     </>
   )

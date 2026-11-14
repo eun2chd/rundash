@@ -123,7 +123,7 @@ export default function Hud({
           </div>
         </div>
 
-        <div className="hint">E 챙기기 · Space 박자 · C 응원 · B 부스터 · P 일시정지</div>
+        <div className="hint">E 챙기기 · Space 박자{import.meta.env.DEV && ' · C 응원'} · B 부스터 · P 일시정지</div>
 
         <div className="stat-card">
           <div className="stat-main">
@@ -173,9 +173,9 @@ export default function Hud({
         <div className="dock">
           {!config.anonymous && <button className={`dock-btn booster-btn ${t.boostLeft > 0 ? 'boosting' : ''}`} disabled={boostDisabled} onClick={onBoost} title={config.boosterUnlocked ? `속도 +${Math.round((getSettings().boostMultiplier - 1) * 100)}% · 체력 ${config.boosterCost} 소모 · 종료 후 ${config.boosterCooldown}초 재충전` : '레벨을 올려 부스터를 해금해요'}><LuZap /><span>{!config.boosterUnlocked ? '부스터 잠김' : t.boostLeft > 0 ? `가속 ${Math.ceil(t.boostLeft)}초` : t.boostCooldownLeft > 0 ? `충전 ${Math.ceil(t.boostCooldownLeft)}초` : t.stamina <= config.boosterCost ? '체력 부족' : '부스터'}</span><kbd>B</kbd></button>}
           <button className="dock-btn" onClick={onBeat}><LuMusic /><span>박자</span><kbd>Space</kbd></button>
-          <button className={`dock-btn ${t.near ? 'glow' : ''}`} onClick={onCheer}>
+          {import.meta.env.DEV && <button className={`dock-btn ${t.near ? 'glow' : ''}`} onClick={onCheer}>
             <LuMegaphone /><span>{t.near ? `${t.near.g.nickname} 응원` : '응원'}</span><kbd>C</kbd>
-          </button>
+          </button>}
           <button className={`dock-btn ${activeItems.length || medalNear ? 'glow' : ''}`} onClick={onCollectNearest}>
             <LuHand /><span>{activeItems.length ? '보급 챙기기' : '줍기'}</span><kbd>E</kbd>
           </button>

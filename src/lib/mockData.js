@@ -1,14 +1,14 @@
 import { STAMINA } from './stamina'
 import { getSettings } from './settings'
 
-// 목업 데이터 — 나중에 Supabase Realtime Presence 로 대체
+// 개발 환경의 테스트용 AI 러너. 배포 빌드에서는 데이터와 표시를 제외합니다.
 // start: 시작 시점에 앞(+)/뒤(-)로 몇 m 떨어져 있는지
-export const MOCK_RUNNERS = [
+export const MOCK_RUNNERS = import.meta.env.DEV ? [
   { id: 'g1', nickname: '새벽러너', color: '#f08a5d', skin: '#f6d1b0', hair: '#3b2a20', paceSec: 330, start: -25, lane: -1.6 },
   { id: 'g2', nickname: '한강토끼', color: '#7fb3d5', skin: '#f1c9a5', hair: null, paceSec: 290, start: -70, lane: 1.6 },
   { id: 'g3', nickname: '느긋거북', color: '#b8d27a', skin: '#e8b98f', hair: '#5a4632', paceSec: 450, start: 45, lane: 0.9 },
   { id: 'g4', nickname: '주말조깅', color: '#c39bd3', skin: '#f6d1b0', hair: '#222', paceSec: 380, start: 12, lane: -0.9 },
-]
+] : []
 
 // restore: 체력 회복량
 export const ITEM_TYPES = {
