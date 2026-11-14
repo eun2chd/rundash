@@ -14,6 +14,7 @@ import ScoreSummary from './ScoreSummary'
 import SupplyPanel from './SupplyPanel'
 import RunnerChat from './RunnerChat'
 import DeveloperDebug from './DeveloperDebug'
+import RunningMusic from './RunningMusic'
 
 export default function Hud({
   sim, getMyDist, getGhostDist, ghosts, nearestGhost, profile, config, totalM, biome,
@@ -160,6 +161,7 @@ export default function Hud({
 
       {/* 우상단: 접속 인원과 채팅방 */}
       <div className="hud-tr">
+        <RunningMusic />
         <div className="room-presence"><LuUsers /><span>{room.connection === 'connected' ? <>접속 <b>{room.online}</b>명 · 달리는 중 <b>{room.running}</b>명</> : '접속 인원 확인 중…'}</span><span className={`connection-dot ${room.connection === 'connected' ? 'online' : ''}`} /></div>
         <button type="button" className="chat-toggle" aria-expanded={showChat} onClick={() => setShowChat((visible) => !visible)}><LuMessageCircle /> {showChat ? '채팅 숨기기' : '채팅 보이기'}</button>
         {showChat && <RunnerChat room={room} onHide={() => setShowChat(false)} />}

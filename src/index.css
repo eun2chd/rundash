@@ -883,3 +883,6 @@ body:has(.admin-screen) .site-header { background: #fff; border-color: #dde3e4; 
   .admin-screen .admin-sidebar { min-height: auto; padding: 12px; border-right: 0; border-bottom: 1px solid var(--line); }
   .admin-screen .admin-content { margin: 12px; padding: 14px; }
 }
+
+.running-music { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.running-music-error { max-width: 240px; padding: 8px 10px; border-radius: 6px; background: var(--cream); color: var(--ink); font-size: 12px; }
