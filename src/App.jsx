@@ -12,6 +12,7 @@ import useConfirmation from './lib/useConfirmation'
 import ManualDialog from './components/ManualDialog'
 import Support from './screens/Support'
 import { configureSettings, getSettings } from './lib/settings'
+import { readLocalCheckpoint, clearLocalCheckpoint, validCheckpoint } from './lib/runClock'
 
 
 const SignUp = lazy(() => import('./screens/SignUp'))
@@ -37,6 +38,7 @@ export default function App() {
   const [config, setConfig] = useState({ intensity: 'steady', distanceKm: 5, activity: 'rest' })
   const [progression, setProgression] = useState({ xp: 0 })
   const [activeConfig, setActiveConfig] = useState(null)
+  const [resumeOffer, setResumeOffer] = useState(null)
   const [starting, setStarting] = useState(false)
   const startId = useRef(null)
   const [result, setResult] = useState(null)
@@ -72,6 +74,16 @@ export default function App() {
     if (p && !u.is_anonymous) {
       try { setProgression(await api.getProgression(u.id)) }
       catch { setError('성장 정보를 불러오지 못했어요. 러닝 시작 시 다시 확인할게요.') }
+    }
+    setResumeOffer(null)
+    if (p && !u.is_anonymous && !status.suspended) {
+      try {
+        const saved = await api.loadCheckpoint()
+        const local = readLocalCheckpoint(u.id)
+        const payloads = [local, saved?.payload].filter(value => validCheckpoint(value, saved?.session.id))
+        payloads.sort((a,b) => b.savedAt - a.savedAt)
+        if (payloads.length) setResumeOffer({ payload: payloads[0], session: saved.session })
+      } catch { /* Existing deployments can still log in before the new migration. */ }
     }
     setScreen(status.suspended ? 'support' : p ? 'setup' : 'character')
   }
@@ -171,6 +183,8 @@ export default function App() {
       }
       if (destination === 'logout') await logout()
       else setScreen(destination)
+      clearLocalCheckpoint(user.id)
+      setResumeOffer(null)
       setPendingRun(null)
     } catch (err) { setError(err.message) }
     finally { setSaving(false) }
@@ -187,9 +201,26 @@ export default function App() {
       if (ticket.settings) configureSettings(ticket.settings)
       setProgression((previous) => ({ ...previous, xp: ticket.xp }))
       setActiveConfig({ ...config, distanceKm: ticket.distanceKm ?? config.distanceKm, ...trainingFor(ticket.xp, ticket.intensity || config.intensity, user.is_anonymous), id: ticket.id, anonymous: user.is_anonymous })
+      clearLocalCheckpoint(user.id)
+      setResumeOffer(null)
       startId.current = null
       setScreen('run')
     } catch (err) { setError(err.message || '러닝을 준비하지 못했어요. 다시 시도해 주세요.') }
+    finally { setStarting(false) }
+  }
+
+  const resumeRun = async () => {
+    if (!resumeOffer || starting) return
+    setStarting(true)
+    try {
+      if (!await confirm({ title: '진행 중이던 러닝을 이어갈까요?', description: '달리던 러너는 마지막 저장 시점부터 경과 시간을 반영하고, 일시정지 중이었다면 그대로 복원해요.' })) return
+      const fresh = await api.loadCheckpoint()
+      if (fresh?.session.id !== resumeOffer.session.id) throw new Error('이미 종료되거나 다른 곳에서 새로 시작한 러닝이에요.')
+      const session = fresh.session
+      configureSettings(session.rules)
+      setActiveConfig({ ...config, ...trainingFor(session.xp_at_start, session.intensity, false), distanceKm: Number(session.target_km), id: session.id, anonymous: false, practice: session.practice, activity: resumeOffer.payload.activity || 'rest', showActivity: resumeOffer.payload.showActivity !== false, resume: resumeOffer.payload })
+      setResumeOffer(null); setError(''); setScreen('run')
+    } catch (err) { setError(err.message || '러닝을 복구하지 못했어요.') }
     finally { setStarting(false) }
   }
 
@@ -210,6 +241,7 @@ export default function App() {
       {screen === 'character' && (
         <CharacterCreate user={user} initial={profile} onDone={async (p) => { if (await confirm({ title: '러닝 설정으로 이동할까요?', description: '완성한 러너로 러닝을 준비합니다.' })) { setProfile(p); setScreen('setup') } }} />
       )}
+      {screen === 'setup' && resumeOffer && <aside className="resume-running" role="status"><strong>이어갈 수 있는 러닝이 있어요.</strong><span>{(resumeOffer.payload.sim.dist / 1000).toFixed(2)} / {resumeOffer.session.target_km} km · {resumeOffer.payload.sim.paused ? '일시정지 중' : '달리는 중'}</span><button className="btn primary" disabled={starting} onClick={resumeRun}>이어서 달리기</button><p>새 러닝을 시작하면 이전 러닝은 이어갈 수 없어요.</p></aside>}
       {screen === 'setup' && (
         <RunSetup
           profile={profile}

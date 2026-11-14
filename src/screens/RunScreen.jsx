@@ -12,7 +12,7 @@ import { loopGap } from '../three/track'
 import { MOCK_RUNNERS, ITEM_TYPES, generateCourse } from '../lib/mockData'
 import { cadenceFor, speedMps, totalRunSec } from '../lib/pace'
 import { STAMINA, drainPerKm, tiredFor } from '../lib/stamina'
-import { activateBooster, advanceSimulation } from '../lib/simulation'
+import { activateBooster } from '../lib/simulation'
 import { api } from '../lib/api'
 import { BIOME_ICONS, CHEER_ICONS, CHEER_KEYS, ITEM_ICONS } from '../lib/icons'
 import Hud from '../components/Hud'
@@ -20,23 +20,23 @@ import Loading from '../components/Loading'
 import { judgeRhythm } from '../lib/rhythm'
 import useRaceRoom from '../lib/useRaceRoom'
 import { getSettings } from '../lib/settings'
+import { advanceElapsed, restoreSimulation, checkpointKey } from '../lib/runClock'
+import useRunningSocial, { peerDistance } from '../lib/useRunningSocial'
+import FriendPanel from '../components/FriendPanel'
 
 
 // 시뮬레이션 진행: 거리·체력·탈진/회복 (배속 적용)
-function SimDriver({ sim, rhythm }) {
-  useFrame((_, dt) => {
-    if (!sim.current.paused && !sim.current.finished && !sim.current.resting) rhythm.current.elapsed += Math.min(dt, .1)
-    advanceSimulation(sim.current, dt)
-  })
+function SimDriver({ tick }) {
+  useFrame(tick)
   return null
 }
 
-const Scene = memo(function Scene({ sim, rhythm, profile, activity, ghosts, getMyDist, getGhostDist, getMyAction, items, stations, closedStations, biome, cheers, onCollect }) {
+const Scene = memo(function Scene({ sim, rhythm, profile, activity, ghosts, getMyDist, getGhostDist, getMyAction, items, stations, closedStations, biome, cheers, onCollect, tick, peers, getPeerDist, cameraDistance }) {
   return (
     <>
-      <SimDriver sim={sim} rhythm={rhythm} />
+      <SimDriver tick={tick} />
       <World biome={biome} />
-      <CameraRig getDistance={getMyDist} />
+      <CameraRig getDistance={cameraDistance} />
       <Runner
         getDistance={getMyDist}
         getAction={getMyAction}
@@ -63,6 +63,7 @@ const Scene = memo(function Scene({ sim, rhythm, profile, activity, ghosts, getM
           cheerKey={cheers[g.id]?.at}
         />
       ))}
+      {peers.map(peer => <Runner key={peer.id} getDistance={() => getPeerDist(peer)} lane={peer.paired ? 1.4 : -1.4} color={peer.color} skin={peer.skin} hair={peer.hair} outfit={peer.outfit} nickname={peer.nickname} getAction={() => ({ kneel: false, tired: 0, stopped: peer.paused })} />)}
       {stations.map((st) => (
         <AidStation key={st.id} station={st} getMyDist={getMyDist} closed={closedStations.includes(st.id)} />
       ))}
@@ -79,10 +80,11 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
   const totalM = config.distanceKm * 1000
   const cadence = cadenceFor(config.paceSec)
   const ghosts = MOCK_RUNNERS
-  const course = useMemo(() => generateCourse(totalM), [totalM])
+  const course = useMemo(() => config.resume ? { items: config.resume.items, stations: config.resume.stations } : generateCourse(totalM), [totalM])
   const stations = course.stations
 
-  const sim = useRef({
+  const sim = useRef(null)
+  if (!sim.current) sim.current = restoreSimulation({
     elapsed: 0,
     dist: 0,
     totalM,
@@ -98,7 +100,7 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
     boosterCooldown: config.boosterCooldown,
     boosterCost: config.boosterCost,
     boostLeft: 0, boostCooldownLeft: 0, boostUses: 0,
-    practice: false,
+    practice: !!config.practice,
     speedMult: 1,
     resting: false,
     restLeft: 0,
@@ -107,7 +109,7 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
     paused: true,
     finished: false,
     timeScale: 1,
-  })
+  }, config.resume)
   const getMyDist = useCallback(() => sim.current.dist, [])
   const getGhostDist = useCallback((g) => g.start + (sim.current.elapsed * 1000) / g.paceSec, [])
   const getMyAction = useCallback(() => ({ kneel: sim.current.resting, tired: tiredFor(sim.current.stamina, sim.current.maxStamina), boosting: sim.current.boostLeft > 0 }), [])
@@ -116,21 +118,66 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
   const [items, setItems] = useState(course.items)
   const itemsRef = useRef(items)
   itemsRef.current = items
-  const [closedStations, setClosedStations] = useState([])
-  const closedRef = useRef(new Set())
+  const [closedStations, setClosedStations] = useState(config.resume?.closedStations || [])
+  const closedRef = useRef(new Set(config.resume?.closedStations || []))
   const [biomeIdx, setBiomeIdx] = useState(0)
   const biomeRef = useRef(0)
   const [cheers, setCheers] = useState({})
   const [toasts, setToasts] = useState([])
   const [judge, setJudge] = useState(null)
-  const [paused, setPaused] = useState(false)
+  const [paused, setPaused] = useState(!!config.resume?.sim.paused)
   const [showActivity, setShowActivity] = useState(config.showActivity !== false)
   const room = useRaceRoom({ userId: profile.userId, nickname: profile.nickname, paused: paused || !ready })
   const toggleActivity = () => { const next = !showActivity; setShowActivity(next); onActivityVisibilityChange?.(next) }
   const [timeScale, setTimeScale] = useState(1)
-  const stats = useRef({ score: 0, collected: 0, supplies: 0, missedSupplies: 0, medals: 0, combo: 0, maxCombo: 0, cheersSent: 0, cheersGot: 0, perfect: 0, good: 0 })
+  const stats = useRef(config.resume?.stats || { score: 0, collected: 0, supplies: 0, missedSupplies: 0, medals: 0, combo: 0, maxCombo: 0, cheersSent: 0, cheersGot: 0, perfect: 0, good: 0 })
   const [statsView, setStatsView] = useState({ ...stats.current })
-  const rhythm = useRef({ elapsed: 0, period: (4 * 60) / cadence, lastIdx: -1 })
+  const rhythm = useRef({ elapsed: config.resume?.rhythmElapsed || 0, period: (4 * 60) / cadence, lastIdx: -1 })
+  const clock = useRef(performance.now())
+  const tick = useCallback(() => {
+    const now = performance.now()
+    const seconds = Math.max(0, (now - clock.current) / 1000)
+    clock.current = now
+    advanceElapsed(sim.current, seconds, rhythm.current)
+  }, [])
+  const social = useRunningSocial({ profile, config, sim, ready })
+  const [locateId, setLocateId] = useState(null)
+  const socialRef = useRef(social)
+  socialRef.current = social
+  const getPeerDist = useCallback(peer => peer.paired ? sim.current.dist : peerDistance(peer), [])
+  const cameraDistance = () => {
+    const target = socialRef.current.peers.find(peer => peer.id === locateId)
+    return target ? getPeerDist(target) : sim.current.dist
+  }
+  const persistence = useRef(null)
+  const saveBusy = useRef(false)
+  const [checkpointError, setCheckpointError] = useState('')
+  persistence.current = async (cloud = false) => {
+    if (config.anonymous) return
+    tick()
+    const snapshot = { version: 1, runId: config.id, savedAt: Date.now(), sim: { ...sim.current },
+      stats: { ...stats.current }, items: itemsRef.current, stations, closedStations: [...closedRef.current],
+      activity: config.activity, showActivity, rhythmElapsed: rhythm.current.elapsed }
+    try { localStorage.setItem(checkpointKey(profile.userId), JSON.stringify(snapshot)) }
+    catch { setCheckpointError('브라우저에 진행을 저장하지 못했어요. 서버 저장을 확인해 주세요.') }
+    if (cloud && !saveBusy.current) {
+      saveBusy.current = true
+      try { await api.saveCheckpoint(config.id, snapshot); setCheckpointError('') }
+      catch { setCheckpointError('진행은 이 브라우저에 보관 중이에요. 서버 연결을 확인해 주세요.') }
+      finally { saveBusy.current = false }
+    }
+  }
+  useEffect(() => {
+    const advance = () => tick()
+    const save = () => { tick(); persistence.current?.(true) }
+    const timer = setInterval(advance, 100)
+    const localTimer = setInterval(() => persistence.current?.(), 1000)
+    const cloudTimer = setInterval(() => persistence.current?.(true), 10000)
+    window.addEventListener('pagehide', save)
+    window.addEventListener('focus', save)
+    document.addEventListener('visibilitychange', save)
+    return () => { clearInterval(timer); clearInterval(localTimer); clearInterval(cloudTimer); window.removeEventListener('pagehide', save); window.removeEventListener('focus', save); document.removeEventListener('visibilitychange', save) }
+  }, [tick])
   const finishedRef = useRef(false)
   const exitPending = useRef(false)
   const manualPending = useRef(false)
@@ -148,8 +195,9 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
   useEffect(() => {
     const id = setTimeout(() => {
       setReady(true)
-      sim.current.paused = false
-      rhythm.current.elapsed = 0
+      clock.current = performance.now()
+      if (!config.resume) { sim.current.paused = false; rhythm.current.elapsed = 0 }
+      persistence.current?.(true)
       toast(`출발! ${BIOMES[0].name} 구간`, 'km', LuFlag)
     }, 1400)
     return () => clearTimeout(id)
@@ -193,6 +241,7 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
   }
 
   const requestExit = async (destination = 'result') => {
+    tick()
     if (finishedRef.current || sim.current.finished || exitPending.current || !ready) return
     exitPending.current = true
     const wasPaused = sim.current.paused
@@ -211,6 +260,7 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
     } finally { exitPending.current = false }
   }
   const pauseForManual = () => {
+    tick()
     if (!ready || finishedRef.current || sim.current.finished || exitPending.current) return null
     const wasPaused = sim.current.paused
     manualPending.current = true; sim.current.paused = true; setPaused(true)
@@ -227,6 +277,7 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
   }
 
   const collect = (item) => {
+    tick()
     const s = sim.current
     const cur = itemsRef.current.find((i) => i.id === item.id)
     if (!cur || cur.status !== 'pending' || s.paused) return
@@ -294,12 +345,14 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
   }
 
   const togglePause = () => {
+    tick()
     if (finishedRef.current || !ready) return
     sim.current.paused = !sim.current.paused
     setPaused(sim.current.paused)
   }
 
   const changeScale = (v) => {
+    tick()
     if (!import.meta.env.DEV || ![1, 10, 30, 60].includes(v)) return
     if (v > 1 && !sim.current.practice) {
       sim.current.practice = true
@@ -311,6 +364,7 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
   }
 
   const boost = () => {
+    tick()
     if (activateBooster(sim.current)) toast(`부스터! ${config.boosterDuration}초 동안 속도 +${Math.round((getSettings().boostMultiplier - 1) * 100)}%`, 'good', LuZap)
   }
 
@@ -398,8 +452,13 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
 
   return (
     <div className="run-screen">
+      <div className="social-controls"><FriendPanel social={social} onLocate={id => { social.setFocusId(id); setLocateId(id) }} confirmAction={confirmAction} />{locateId && <button className="chat-toggle" onClick={() => { social.setFocusId(null); setLocateId(null) }}>내 러너로 돌아가기</button>}{checkpointError && <p className="checkpoint-notice" role="status">{checkpointError}</p>}</div>
       <Canvas camera={{ fov: 55, near: 0.1, far: 700, position: [0, 5, -10] }} dpr={[1, 1.75]}>
         <Scene
+          tick={tick}
+          peers={social.peers}
+          getPeerDist={getPeerDist}
+          cameraDistance={cameraDistance}
           sim={sim}
           rhythm={rhythm}
           profile={profile}
@@ -421,6 +480,7 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
         <Hud
           sim={sim}
           room={room}
+          realPeers={social.peers.map(peer => ({ ...peer, dist: getPeerDist(peer), lane: peer.paired ? 1.4 : -1.4 }))}
           showActivity={showActivity}
           onToggleActivity={toggleActivity}
           getMyDist={getMyDist}

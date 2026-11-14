@@ -886,3 +886,25 @@ body:has(.admin-screen) .site-header { background: #fff; border-color: #dde3e4; 
 
 .running-music { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
 .running-music-error { max-width: 240px; padding: 8px 10px; border-radius: 6px; background: var(--cream); color: var(--ink); font-size: 12px; }
+
+.social-controls { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); z-index: 45; display: grid; gap: 6px; justify-items: center; pointer-events: auto; }
+.friends-widget { position: relative; }
+.friends-panel { width: min(340px, calc(100vw - 28px)); max-height: 65dvh; overflow-y: auto; background: #fffdf7; color: #24251f; border: 1px solid #b7b8a6; border-radius: 12px; padding: 16px; margin-top: 8px; box-shadow: 0 8px 28px #0003; }
+.friends-panel h2 { font-size: 17px; margin-bottom: 12px; }
+.friends-panel > label { display: flex; align-items: center; gap: 8px; font-size: 12px; margin-bottom: 8px; }
+.friends-panel input[type=checkbox] { width: auto; accent-color: #465332; }
+.friends-panel form { display: flex; gap: 6px; margin: 12px 0; }
+.friends-panel form input { min-width: 0; flex: 1; }
+.friends-panel .btn { padding: 8px 10px; font-size: 12px; margin: 0; }
+.friends-panel p { font-size: 12px; line-height: 1.6; }
+.friend-row { display: grid; gap: 6px; padding: 12px 0; border-top: 1px solid #dad8c9; font-size: 13px; overflow-wrap: anywhere; }
+.friend-row small { font-size: 11px; line-height: 1.6; }
+.friend-actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.checkpoint-notice { max-width: 300px; padding: 8px 10px; background: #fff7dd; color: #342e20; border-radius: 8px; font-size: 11px; }
+.resume-running { margin: 20px auto; max-width: 1100px; padding: 18px; display: flex; align-items: center; flex-wrap: wrap; gap: 12px; border: 1px solid #b3bf9b; border-radius: 12px; background: #edf2df; font-size: 14px; }
+.resume-running p { flex-basis: 100%; font-size: 12px; }
+@media (max-width: 760px) {
+  .social-controls { top: auto; bottom: 185px; left: 10px; transform: none; justify-items: start; }
+  .friends-panel { position: absolute; bottom: 44px; left: 0; margin: 0; max-height: 48dvh; }
+  .resume-running { margin: 12px; }
+}

@@ -4,6 +4,16 @@ const unwrap = ({ data, error }) => { if (error) throw error; return data }
 const profileFromRow = (p) => p && ({ ...p, userId: p.id, updatedAt: p.updated_at })
 const runFromRow = (r) => ({ ...r.details, id: r.id, userId: r.user_id, createdAt: r.created_at })
 export const api = {
+  async locateFriend(id) { return unwrap(await getSupabase().rpc('locate_running_friend', { p_target: id })) },
+  async socialTick({ runId, distance, speed, paused, publicLocation, allowInvites }) { return unwrap(await getSupabase().rpc('running_social_tick', { p_run_id: runId, p_distance: distance, p_speed: speed, p_paused: paused, p_public: publicLocation, p_invites: allowInvites })) },
+  async searchFriends(query) { return unwrap(await getSupabase().rpc('search_running_friends', { p_query: query.trim() })) },
+  async inviteFriend(id) { return unwrap(await getSupabase().rpc('invite_running_friend', { p_target: id })) },
+  async respondInvite(id, action) { return unwrap(await getSupabase().rpc('respond_running_invite', { p_id: id, p_action: action })) },
+  async endPair() { return unwrap(await getSupabase().rpc('end_running_pair')) },
+  async blockFriend(id, block) { return unwrap(await getSupabase().rpc('block_running_friend', { p_target: id, p_block: block })) },
+  async listBlocks() { return unwrap(await getSupabase().rpc('list_running_blocks')) },
+  async saveCheckpoint(id, payload) { return unwrap(await getSupabase().rpc('save_running_checkpoint', { p_run_id: id, p_payload: payload })) },
+  async loadCheckpoint() { return unwrap(await getSupabase().rpc('load_running_checkpoint')) },
   async getSettings() { return unwrap(await getSupabase().from('game_settings').select('value,version,updated_at').eq('id', true).single()) },
   async accountStatus() { return unwrap(await getSupabase().rpc('account_status')) },
   async submitSupport({ category, title, body }) { return unwrap(await getSupabase().rpc('submit_support', { p_category: category, p_title: title, p_body: body })) },

@@ -20,7 +20,7 @@ export default function Hud({
   sim, getMyDist, getGhostDist, ghosts, nearestGhost, profile, config, totalM, biome,
   stats, items, stations, closedStations, rhythm, judge, cadence, toasts, paused, timeScale,
   onTimeScale, onPause, onQuit, onBeat, onCheer, onCollect, onCollectNearest, onBoost,
-  room, showActivity, onToggleActivity,
+  room, showActivity, onToggleActivity, realPeers = [],
 }) {
   const [t, setT] = useState(() => snapshot())
   const [showMap, setShowMap] = useState(false)
@@ -98,7 +98,7 @@ export default function Hud({
         ) : (
           <div className="pill info-pill dim"><LuDroplet /> 남은 보급소 없음</div>
         )}
-        {showMap && <div className="panel hud-left-map" aria-label="러닝 미니맵"><Minimap me={{ dist: t.dist, color: profile.color }} others={ghosts.map((g) => ({ id: g.id, dist: getGhostDist(g), color: g.color, lane: g.lane }))} stations={stations.map((x) => ({ ...x, closed: closedStations.includes(x.id) }))} /></div>}
+        {showMap && <div className="panel hud-left-map" aria-label="러닝 미니맵"><Minimap me={{ dist: t.dist, color: profile.color }} others={[...realPeers, ...ghosts.map(g => ({ id: g.id, dist: getGhostDist(g), color: g.color, lane: g.lane }))]} stations={stations.map(x => ({ ...x, closed: closedStations.includes(x.id) }))} /></div>}
         <ScoreSummary stats={stats} />
         {activeStation && <SupplyPanel station={activeStation} items={activeItems} distance={t.dist} resting={t.resting} onCollect={onCollect} />}
       </div>
