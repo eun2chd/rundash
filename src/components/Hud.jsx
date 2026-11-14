@@ -106,7 +106,7 @@ export default function Hud({
         ) : (
           <div className="pill info-pill dim"><LuDroplet /> 남은 보급소 없음</div>
         )}
-        {showMap && <div className="panel hud-left-map" aria-label="러닝 미니맵"><Minimap me={{ dist: myVisualPose?.distance ?? t.dist, lane: myVisualPose?.lane || 0, color: profile.color }} others={[...realPeers, ...ghosts.map(g => ({ id: g.id, dist: getGhostDist(g), color: g.color, lane: g.lane }))]} stations={stations.map(x => ({ ...x, closed: closedStations.includes(x.id) }))} /></div>}
+        {showMap && <div className="panel hud-left-map" aria-label="러닝 미니맵"><Minimap me={{ dist: myVisualPose?.distance ?? t.dist, lane: myVisualPose?.lane || 0, color: profile.color }} others={[...realPeers, ...ghosts.map(g => ({ id: g.id, nickname: g.nickname, dist: getGhostDist(g), color: g.color, lane: g.lane }))]} stations={stations.map(x => ({ ...x, closed: closedStations.includes(x.id) }))} /></div>}
         <ScoreSummary stats={stats} />
         {activeStation && <SupplyPanel station={activeStation} items={activeItems} distance={t.dist} resting={t.resting} onCollect={onCollect} />}
       </div>

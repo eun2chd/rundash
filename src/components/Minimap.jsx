@@ -1,4 +1,5 @@
 import { MINIMAP, poseAt } from '../three/track'
+import { runnerMapColors, SELF_MAP_COLOR, STATION_MAP_COLOR } from '../lib/mapColors'
 
 const dotPos = (dist, lane = 0) => {
   const { pos } = poseAt(dist, lane)
@@ -7,20 +8,27 @@ const dotPos = (dist, lane = 0) => {
 
 export default function Minimap({ me, others, stations = [] }) {
   const [mx, my] = dotPos(me.dist, me.lane)
-  return (
-    <svg className="minimap" viewBox={`0 0 ${MINIMAP.w} ${MINIMAP.h}`}>
+  const colors = runnerMapColors(others)
+  return <div className="minimap-content">
+    <svg className="minimap" role="img" aria-label={`내 위치와 다른 러너 ${others.length}명, 보급소 위치`} viewBox={`0 0 ${MINIMAP.w} ${MINIMAP.h}`}>
       <path d={MINIMAP.d} fill="none" stroke="rgba(255,248,230,.25)" strokeWidth="9" strokeLinejoin="round" />
       <path d={MINIMAP.d} fill="none" stroke="rgba(255,248,230,.75)" strokeWidth="2.5" strokeDasharray="6 5" />
-      {stations.map((st) => {
+      {stations.map(st => {
         const [x, y] = dotPos(st.dist, 4.9)
-        return <rect key={st.id} x={x - 5} y={y - 5} width="10" height="10" rx="2" fill={st.closed ? '#8f8a7e' : '#e07b39'} stroke="#24251f" strokeWidth="2" />
+        return <rect key={st.id} x={x-5} y={y-5} width="10" height="10" rx="1" fill={st.closed ? '#8f8a7e' : STATION_MAP_COLOR} stroke="#24251f" strokeWidth="2"><title>{st.closed ? '지나온 ' : ''}보급소 {st.n || ''}</title></rect>
       })}
-      {others.map((o) => {
-        const [x, y] = dotPos(o.dist, o.lane)
-        return <circle key={o.id} cx={x} cy={y} r="5" fill={o.color} stroke="#24251f" strokeWidth="2" />
+      {others.map(runner => {
+        const [x, y] = dotPos(runner.dist, runner.lane)
+        return <circle key={runner.id} cx={x} cy={y} r="6" fill={colors.get(String(runner.id))} stroke="#17212b" strokeWidth="2"><title>{runner.nickname || '러너'}</title></circle>
       })}
-      <circle cx={mx} cy={my} r="10" fill="none" stroke="#fff6d5" strokeWidth="2.5" opacity=".7" />
-      <circle cx={mx} cy={my} r="6.5" fill={me.color} stroke="#fff" strokeWidth="2.5" />
+      <circle cx={mx} cy={my} r="11" fill="none" stroke={SELF_MAP_COLOR} strokeWidth="2.5" opacity=".85" />
+      <circle cx={mx} cy={my} r="6.5" fill={SELF_MAP_COLOR} stroke="#17212b" strokeWidth="2.5"><title>내 위치</title></circle>
     </svg>
-  )
+    <div className="minimap-legend" aria-label="지도 표시 안내">
+      <span><i className="map-key map-key-self" />나</span>
+      <span><i className="map-key map-key-runner" />다른 러너</span>
+      <span><i className="map-key map-key-station" />보급소</span>
+    </div>
+    {!!others.length && <ul className="minimap-runners" aria-label="러너별 지도 색상">{others.map(runner => <li key={runner.id}><i className="map-key" style={{ background: colors.get(String(runner.id)) }} /><span>{runner.nickname || '러너'}</span></li>)}</ul>}
+  </div>
 }
