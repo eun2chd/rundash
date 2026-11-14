@@ -19,8 +19,8 @@ import Hud from '../components/Hud'
 import Loading from '../components/Loading'
 import { judgeRhythm } from '../lib/rhythm'
 import useRaceRoom from '../lib/useRaceRoom'
+import { getSettings } from '../lib/settings'
 
-const NEAR_M = 18
 
 // 시뮬레이션 진행: 거리·체력·탈진/회복 (배속 적용)
 function SimDriver({ sim, rhythm }) {
@@ -92,7 +92,7 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
     stamina: config.maxStamina,
     maxStamina: config.maxStamina,
     recoverySec: config.recoverySec,
-    recoverTo: config.maxStamina * .4,
+    recoverTo: config.maxStamina * getSettings().recoverRatio,
     boosterUnlocked: config.boosterUnlocked,
     boosterDuration: config.boosterDuration,
     boosterCooldown: config.boosterCooldown,
@@ -160,7 +160,7 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
     let best = null
     for (const g of ghosts) {
       const gap = loopGap(getGhostDist(g), my)
-      if (Math.abs(gap) < NEAR_M && (!best || Math.abs(gap) < Math.abs(best.gap))) best = { g, gap }
+      if (Math.abs(gap) < getSettings().cheerRadius && (!best || Math.abs(gap) < Math.abs(best.gap))) best = { g, gap }
     }
     return best
   }, [getMyDist, getGhostDist, ghosts])
@@ -233,10 +233,10 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
     if (s.resting) return toast('회복 중에는 움직일 수 없어요', 'warn', LuBatteryLow)
     const my = getMyDist()
     if (!canGrab(cur, my)) {
-      return toast(cur.stationId ? '보급소에 도착하면 챙길 수 있어요' : '아직 멀어요 — 가까워지면 눌러주세요', 'warn')
+      return toast(cur.stationId ? '보급소에 도착하면 챙길 수 있어요' : '아직 멀어요. 가까워지면 눌러주세요', 'warn')
     }
     const t = ITEM_TYPES[cur.type]
-    const mult = 1 + Math.min(stats.current.combo, 10) * 0.1
+    const mult = 1 + Math.min(stats.current.combo, getSettings().comboCap) * getSettings().comboBonus
     const pts = Math.round(t.points * mult)
     stats.current.score += pts
     stats.current.collected++
@@ -272,15 +272,15 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
   const cheer = () => {
     if (sim.current.paused || sim.current.resting) return
     const n = nearestGhost()
-    if (!n) return toast(`근처(${NEAR_M}m)에 러너가 없어요`, 'warn')
+    if (!n) return toast(`근처(${getSettings().cheerRadius}m)에 러너가 없어요`, 'warn')
     const now = Date.now()
     if (now - (lastCheer.current[n.g.id] || 0) < 2000) return
     lastCheer.current[n.g.id] = now
     const key = CHEER_KEYS[Math.floor(Math.random() * CHEER_KEYS.length)]
     setCheers((c) => ({ ...c, [n.g.id]: { icon: key, at: now } }))
     stats.current.cheersSent++
-    stats.current.score += 15
-    toast(`${n.g.nickname}님에게 응원 +15`, 'good', CHEER_ICONS[key])
+    stats.current.score += getSettings().cheerPoints
+    toast(`${n.g.nickname}님에게 응원 +${getSettings().cheerPoints}`, 'good', CHEER_ICONS[key])
     bump()
   }
 
@@ -311,7 +311,7 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
   }
 
   const boost = () => {
-    if (activateBooster(sim.current)) toast(`부스터! ${config.boosterDuration}초 동안 속도 +50%`, 'good', LuZap)
+    if (activateBooster(sim.current)) toast(`부스터! ${config.boosterDuration}초 동안 속도 +${Math.round((getSettings().boostMultiplier - 1) * 100)}%`, 'good', LuZap)
   }
 
   const handlers = useRef({})
@@ -351,7 +351,7 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
         const left = itemsRef.current.filter((i) => i.stationId === st.id && i.status === 'pending')
         if (left.length) {
           stats.current.missedSupplies += left.length
-          toast(`보급소 ${st.n} 지나침 — 못 챙긴 보급품 ${left.length}개는 사라졌어요`, 'warn', LuDroplet)
+          toast(`보급소 ${st.n} 지나침. 못 챙긴 보급품 ${left.length}개는 사라졌어요`, 'warn', LuDroplet)
         }
       }
     }
@@ -370,12 +370,12 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
     } else if (!s.resting && flags.current.resting) {
       flags.current.resting = false
       flags.current.low = false
-      toast('회복 완료 — 다시 출발!', 'km', LuFootprints)
+      toast('회복 완료. 다시 출발!', 'km', LuFootprints)
     }
     if (!s.resting && s.stamina / s.maxStamina < .25 && !flags.current.low) {
       flags.current.low = true
       const next = stations.find((st) => st.dist + STAMINA.stationGrabAfterM > my)
-      toast(next ? `체력이 바닥나고 있어요 — 보급소 ${next.n}까지 ${Math.max(0, Math.round(next.dist - my))}m` : '체력이 바닥나고 있어요', 'warn', LuBatteryWarning)
+      toast(next ? `체력이 바닥나고 있어요. 보급소 ${next.n}까지 ${Math.max(0, Math.round(next.dist - my))}m` : '체력이 바닥나고 있어요', 'warn', LuBatteryWarning)
     }
     if (s.stamina / s.maxStamina >= .35) flags.current.low = false
 

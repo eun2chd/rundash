@@ -1,7 +1,8 @@
 // ─── 체력 시스템 ───
 // 달린 거리만큼 체력이 줄고, 체력이 낮을수록 느려짐.
 // 0 이 되면 탈진 → 무릎 꿇고 recoverySec 동안 회복해야 다시 달릴 수 있음.
-export const STAMINA = {
+import { getSettings } from './settings.js'
+const BASE_STAMINA = {
   max: 100,
   drainPerKmBase: 30, // 6'00"/km 기준 1km 당 소모량
   basePace: 360,
@@ -12,6 +13,10 @@ export const STAMINA = {
   stationGrabBeforeM: 40, // 보급소 앞 몇 m 부터 챙길 수 있나
   stationGrabAfterM: 8, // 지나친 뒤 몇 m 까지 (이후엔 끝)
 }
+export const STAMINA = new Proxy(BASE_STAMINA, { get(target, key) {
+  const map = { drainPerKmBase: 'staminaDrain', basePace: 'staminaBasePace' }
+  return getSettings()[map[key] || key] ?? target[key]
+} })
 
 export const drainPerKm = (paceSec) => STAMINA.drainPerKmBase * Math.pow(STAMINA.basePace / paceSec, 1.2)
 

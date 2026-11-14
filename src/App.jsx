@@ -15,8 +15,12 @@ import { trainingFor } from './lib/progression'
 import ConfirmDialog from './components/ConfirmDialog'
 import useConfirmation from './lib/useConfirmation'
 import ManualDialog from './components/ManualDialog'
+import MyPage from './screens/MyPage'
+import Support from './screens/Support'
+import Admin from './screens/Admin'
+import { configureSettings, getSettings } from './lib/settings'
 
-const SCREEN_NAMES = { login: '로그인', signup: '회원가입', character: '러너 만들기', setup: '러닝 설정', 'forgot-password': '비밀번호 찾기', 'verify-email': '이메일 재인증', result: '러닝 결과' }
+const SCREEN_NAMES = { admin: '관리자', support: '문의하기', mypage: '마이페이지', login: '로그인', signup: '회원가입', character: '러너 만들기', setup: '러닝 설정', 'forgot-password': '비밀번호 찾기', 'verify-email': '이메일 재인증', result: '러닝 결과' }
 
 const callbackHash = new URLSearchParams(window.location.hash.slice(1))
 const recoveryRequested = new URLSearchParams(window.location.search).get('auth') === 'reset-password' || callbackHash.get('type') === 'recovery'
@@ -26,6 +30,7 @@ const callbackFailed = callbackHash.has('error') || new URLSearchParams(window.l
 export default function App() {
   const [screen, setScreen] = useState('loading')
   const [user, setUser] = useState(null)
+  const [account, setAccount] = useState({ admin: false, suspended: false })
   const [profile, setProfile] = useState(null)
   const [config, setConfig] = useState({ intensity: 'steady', distanceKm: 5, activity: 'rest' })
   const [progression, setProgression] = useState({ xp: 0 })
@@ -55,6 +60,9 @@ export default function App() {
   const closeManual = () => { setManualOpen(false); manualResume.current?.(); manualResume.current = null }
 
   const enter = async (u) => {
+    const [settings, status] = await Promise.all([api.getSettings(), api.accountStatus()])
+    configureSettings(settings.value)
+    setAccount(status)
     setUser(u)
     const p = u.is_anonymous ? null : await api.getProfile(u.id)
     setProfile(p)
@@ -63,7 +71,7 @@ export default function App() {
       try { setProgression(await api.getProgression(u.id)) }
       catch { setError('성장 정보를 불러오지 못했어요. 러닝 시작 시 다시 확인할게요.') }
     }
-    setScreen(p ? 'setup' : 'character')
+    setScreen(status.suspended ? 'support' : p ? 'setup' : 'character')
   }
 
   useEffect(() => {
@@ -124,9 +132,14 @@ export default function App() {
 
   const navigate = async (next) => {
     if (next === screen || starting || saving) return
+    if (next === 'admin' && !account.admin) return
+    if (account.suspended && !['support', 'mypage', 'login', 'signup'].includes(next)) { setError('이용이 제한된 계정이에요. 문의하기로 연락해 주세요.'); return }
     if (screen === 'run') return runControls.current?.requestExit(next)
     if (!await confirm({ title: `${SCREEN_NAMES[next] || '다른 화면'} 화면으로 이동할까요?`, description: screen === 'character' ? '저장하지 않은 러너 변경사항은 사라져요.' : '입력 중인 내용은 이동하면 초기화될 수 있어요.' })) return
-    setError(''); setScreen(next)
+    try {
+      if (next === 'setup') configureSettings((await api.getSettings()).value)
+      setError(''); setScreen(next)
+    } catch { setError('러닝 설정을 불러오지 못했어요. 다시 시도해 주세요.') }
   }
 
   const requestLogout = async () => {
@@ -167,9 +180,11 @@ export default function App() {
     try {
       if (!await confirm({ title: '러닝을 시작할까요?', description: `${config.distanceKm}km 러닝을 시작합니다. 러닝 중 나가려면 종료 확인이 필요해요.`, confirmLabel: '달리기 시작', cancelLabel: '설정 더 보기' })) return
       startId.current ||= crypto.randomUUID()
+      if (user.is_anonymous && config.distanceKm > getSettings().anonymousMaxKm) throw new Error(`익명 러너는 최대 ${getSettings().anonymousMaxKm}km까지 달릴 수 있어요.`)
       const ticket = user.is_anonymous ? { id: startId.current, xp: 0 } : await api.startRun({ id: startId.current, ...config })
+      if (ticket.settings) configureSettings(ticket.settings)
       setProgression((previous) => ({ ...previous, xp: ticket.xp }))
-      setActiveConfig({ ...config, distanceKm: ticket.distanceKm ?? config.distanceKm, ...trainingFor(ticket.xp, ticket.intensity || config.intensity), id: ticket.id, anonymous: user.is_anonymous })
+      setActiveConfig({ ...config, distanceKm: ticket.distanceKm ?? config.distanceKm, ...trainingFor(ticket.xp, ticket.intensity || config.intensity, user.is_anonymous), id: ticket.id, anonymous: user.is_anonymous })
       startId.current = null
       setScreen('run')
     } catch (err) { setError(err.message || '러닝을 준비하지 못했어요. 다시 시도해 주세요.') }
@@ -178,7 +193,7 @@ export default function App() {
 
   return (
     <>
-      <Header user={user} profile={profile} screen={starting ? 'loading' : screen} onNavigate={navigate} onLogout={requestLogout} onHelp={openManual} />
+      <Header user={user} profile={profile} admin={account.admin} screen={starting ? 'loading' : screen} onNavigate={navigate} onLogout={requestLogout} onHelp={openManual} />
       {question && <ConfirmDialog {...question} onAnswer={answer} />}
       {manualOpen && <ManualDialog onClose={closeManual} />}
       <main className="app-content">
@@ -205,6 +220,9 @@ export default function App() {
       )}
       {screen === 'run' && <RunScreen ref={runControls} profile={profile} config={activeConfig} onFinish={finishRun} confirmAction={confirm} onActivityVisibilityChange={(visible) => setConfig((previous) => ({ ...previous, showActivity: visible }))} />}
       {screen === 'result' && <Result result={result} profile={profile} persisted={!user.is_anonymous} onAgain={() => navigate('setup')} />}
+      {screen === 'mypage' && user && <MyPage user={user} profile={profile} onProfile={setProfile} confirmAction={confirm} onNavigate={navigate} />}
+      {screen === 'support' && user && <Support suspended={account.suspended} />}
+      {screen === 'admin' && account.admin && <Admin confirmAction={confirm} />}
       </main>
     </>
   )

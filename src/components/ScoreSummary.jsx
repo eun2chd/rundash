@@ -1,5 +1,6 @@
+import { getSettings } from '../lib/settings'
 export default function ScoreSummary({ stats }) {
-  const multiplier = 1 + Math.min(stats.combo, 10) * .1
+  const multiplier = 1 + Math.min(stats.combo, getSettings().comboCap) * getSettings().comboBonus
   return <section className="score-card" aria-label="러닝 점수와 콤보">
     <div className="score-heading"><span>러닝 점수</span><b>아이템 ×{multiplier.toFixed(1)}</b></div>
     <div className="score">{stats.score.toLocaleString()}<small>pt</small></div>

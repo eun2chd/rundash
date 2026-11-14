@@ -2,12 +2,12 @@ import CharacterPreview from '../components/CharacterPreview'
 import { fmtPace, fmtTime } from '../lib/pace'
 import { LuTrophy, LuFlag } from 'react-icons/lu'
 import GrowthCard from '../components/GrowthCard'
-import { MILESTONES } from '../lib/progression'
+import { getSettings } from '../lib/settings'
 
 export default function Result({ result, profile, persisted = true, onAgain }) {
   const r = result
   const growth = r.growth || { xpEarned: 0, xpBefore: 0, xpAfter: 0 }
-  const unlocked = MILESTONES.filter((milestone) => milestone.level > (growth.levelBefore || 1) && milestone.level <= (growth.levelAfter || 1))
+  const unlocked = getSettings().levels.filter((row, index, rows) => row.level > (growth.levelBefore || 1) && row.level <= (growth.levelAfter || 1) && row.boost > (rows[index - 1]?.boost || 0)).map(row => ({ level: row.level, title: '부스터 해금과 강화', description: `${row.boost}초 가속` }))
   return (
     <div className="result-screen">
       <div className="result-stage">
@@ -30,7 +30,7 @@ export default function Result({ result, profile, persisted = true, onAgain }) {
           <div><span>탈진</span><b>{r.exhaustCount}회</b></div>
           <div><span>회복에 쓴 시간</span><b>{fmtTime(r.restSec)}</b></div>
           <div><span>최대 콤보</span><b>{r.maxCombo}</b></div>
-          <div><span>부스터</span><b>{r.boostUses || 0}회</b></div>
+          {persisted && <div><span>부스터</span><b>{r.boostUses || 0}회</b></div>}
           <div><span>PERFECT</span><b>{r.perfect}</b></div>
           <div><span>보낸 응원</span><b>{r.cheersSent}</b></div>
           <div><span>받은 응원</span><b>{r.cheersGot}</b></div>

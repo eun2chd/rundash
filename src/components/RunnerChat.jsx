@@ -1,5 +1,6 @@
 import { memo, useEffect, useRef, useState } from 'react'
 import { LuMessageCircle, LuSend, LuX } from 'react-icons/lu'
+import { getSettings } from '../lib/settings'
 
 export default memo(function RunnerChat({ room, onHide }) {
   const [draft, setDraft] = useState('')
@@ -19,9 +20,9 @@ export default memo(function RunnerChat({ room, onHide }) {
     {room.error && <p className="chat-error" role="alert">{room.error}</p>}
     <form className="chat-compose" onSubmit={submit}>
       <label className="sr-only" htmlFor="race-chat-message">채팅 메시지</label>
-      <input id="race-chat-message" value={draft} maxLength={300} autoComplete="off" placeholder="러너들과 이야기해요" disabled={room.sending} onChange={(event) => setDraft(event.target.value)} />
+      <input id="race-chat-message" value={draft} maxLength={getSettings().chatMaxLength} autoComplete="off" placeholder="러너들과 이야기해요" disabled={room.sending} onChange={(event) => setDraft(event.target.value)} />
       <button type="submit" className="chat-send" aria-label="메시지 보내기" disabled={room.sending || !draft.trim() || room.connection !== 'connected'}><LuSend /></button>
     </form>
-    <div className="chat-footer">Enter로 보내기 · {draft.length}/300</div>
+    <div className="chat-footer">Enter로 보내기 · {draft.length}/{getSettings().chatMaxLength}</div>
   </section>
 })

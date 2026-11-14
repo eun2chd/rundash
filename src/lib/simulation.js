@@ -1,4 +1,5 @@
 import { speedMultFor } from './stamina.js'
+import { getSettings } from './settings.js'
 
 export function activateBooster(s) {
   if (!s.boosterUnlocked || s.paused || s.finished || s.resting || s.boostCooldownLeft > 0 || s.stamina <= s.boosterCost) return false
@@ -26,8 +27,9 @@ export function advanceSimulation(s, dt) {
     return
   }
   const multiplier = speedMultFor(s.stamina, s.maxStamina)
-  s.speedMult = multiplier * (boostSeconds > 0 ? 1.5 : 1)
-  const dd = Math.min(s.totalM - s.dist, s.speed * multiplier * (step + boostSeconds * .5))
+  const boostBonus = getSettings().boostMultiplier - 1
+  s.speedMult = multiplier * (boostSeconds > 0 ? 1 + boostBonus : 1)
+  const dd = Math.min(s.totalM - s.dist, s.speed * multiplier * (step + boostSeconds * boostBonus))
   s.dist += dd
   s.stamina = Math.max(0, s.stamina - dd / 1000 * s.drain)
   if (s.dist >= s.totalM) s.finished = true

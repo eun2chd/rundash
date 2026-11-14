@@ -1,4 +1,5 @@
-export const RHYTHM_WINDOWS = { perfect: .09, good: .2 }
+import { getSettings } from './settings.js'
+export const RHYTHM_WINDOWS = { get perfect() { return getSettings().rhythmPerfect }, get good() { return getSettings().rhythmGood } }
 
 export function rhythmFrame(rhythm) {
   const elapsed = Math.max(0, rhythm.elapsed || 0)
@@ -13,8 +14,8 @@ export function judgeRhythm(rhythm, stats) {
   rhythm.lastIdx = frame.cycle
   let res = 'MISS'
   let points = 0
-  if (frame.offset <= RHYTHM_WINDOWS.perfect + 1e-9) { res = 'PERFECT'; points = 5; stats.perfect++ }
-  else if (frame.offset <= RHYTHM_WINDOWS.good + 1e-9) { res = 'GOOD'; points = 2; stats.good++ }
+  if (frame.offset <= RHYTHM_WINDOWS.perfect + 1e-9) { res = 'PERFECT'; points = getSettings().perfectPoints; stats.perfect++ }
+  else if (frame.offset <= RHYTHM_WINDOWS.good + 1e-9) { res = 'GOOD'; points = getSettings().goodPoints; stats.good++ }
   stats.combo = points ? stats.combo + 1 : 0
   stats.maxCombo = Math.max(stats.maxCombo, stats.combo)
   stats.score += points

@@ -26,7 +26,7 @@ export default function CoursePreview({ distanceKm }) {
       const stationKm = km + .6
       const hasStation = stationKm < distanceKm - .08
       return <li key={km} style={{ '--course-color': theme.color, '--course-bg': theme.bg }}>
-        <div className="course-node"><Icon /></div><div className="course-segment"><div className="course-segment-heading"><strong>{biome.name}</strong><span>{km}–{fmtKm(end)}km</span></div><p>{theme.description}</p>{hasStation && <span className="course-aid"><LuDroplet /> {stationKm.toFixed(1)}km · 물 / 에너지 젤</span>}</div>
+        <div className="course-node"><Icon /></div><div className="course-segment"><div className="course-segment-heading"><strong>{biome.name}</strong><span>{km}~{fmtKm(end)}km</span></div><p>{theme.description}</p>{hasStation && <span className="course-aid"><LuDroplet /> {stationKm.toFixed(1)}km · 물 / 에너지 젤</span>}</div>
       </li>
     })}</ol>
     {distanceKm > 10 && <p className="course-repeat">10km 이후에도 5가지 풍경이 순서대로 이어져요.</p>}

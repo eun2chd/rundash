@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { getSettings } from './settings'
 import { getSupabase } from './supabase'
 import { mergeMessages, presenceCounts } from './chat'
 
@@ -54,7 +55,7 @@ export default function useRaceRoom({ userId, nickname, paused }) {
   }, [paused, nickname, connection])
   const send = useCallback(async (text) => {
     const message = text.trim()
-    if (sendingRef.current || !message || message.length > 300) return false
+    if (sendingRef.current || !message || message.length > getSettings().chatMaxLength) return false
     sendingRef.current = true; setSending(true); setError('')
     try {
       const { data, error: sendError } = await getSupabase().rpc('send_race_message', { p_message: message, p_nickname: nickname })
@@ -62,7 +63,7 @@ export default function useRaceRoom({ userId, nickname, paused }) {
       setMessages((previous) => mergeMessages(previous, [data]))
       return true
     } catch (sendError) {
-      setError(sendError.message?.includes('2초') ? sendError.message : '메시지를 보내지 못했어요. 연결을 확인한 뒤 다시 보내주세요.')
+      setError(sendError.message?.includes('간격') || sendError.message?.includes('이용이 제한') ? sendError.message : '메시지를 보내지 못했어요. 연결을 확인한 뒤 다시 보내주세요.')
       return false
     } finally { sendingRef.current = false; setSending(false) }
   }, [nickname])

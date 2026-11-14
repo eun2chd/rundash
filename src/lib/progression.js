@@ -1,8 +1,5 @@
-export const INTENSITIES = [
-  { id: 'easy', label: '가볍게', description: '오래, 편안하게', extraPace: 150, drain: .75 },
-  { id: 'steady', label: '꾸준히', description: '균형 잡힌 기본 훈련', extraPace: 60, drain: 1 },
-  { id: 'challenge', label: '도전하기', description: '가장 빠르게, 보급은 필수', extraPace: 0, drain: 1.35 },
-]
+import { getSettings } from './settings.js'
+export const INTENSITIES = getSettings().intensities
 export const MILESTONES = [
   { level: 5, title: '부스터 해금', description: '8초 동안 속도 50% 증가' },
   { level: 10, title: '빠른 회복', description: '최대 페이스 7분/km · 회복력 향상' },
@@ -13,7 +10,7 @@ export const MILESTONES = [
 export const MAX_LEVEL = 50
 export const xpForLevel = (level) => {
   const n = Math.max(0, Math.min(MAX_LEVEL, level) - 1)
-  return 100 * n + 20 * n * (n - 1)
+  return getSettings().xpBase * n + getSettings().xpStep * n * (n - 1)
 }
 export function progressionFor(xp = 0) {
   xp = Math.max(0, Math.floor(Number(xp) || 0))
@@ -21,28 +18,29 @@ export function progressionFor(xp = 0) {
   while (level < MAX_LEVEL && xp >= xpForLevel(level + 1)) level++
   const inLevel = xp - xpForLevel(level)
   const needed = level === MAX_LEVEL ? 0 : xpForLevel(level + 1) - xpForLevel(level)
-  const fastest = level <= 5 ? 540 - (level - 1) * 15
-    : level <= 10 ? 480 - (level - 5) * 12
-      : level <= 30 ? 420 - (level - 10) * 6 : 300
+  const rules = getSettings()
+  const row = rules.levels[level - 1]
+  const next = rules.levels.find(item => item.level > level && (item.boost > row.boost || (!row.boost && item.boost)))
   return {
     xp, level, inLevel, needed, remaining: Math.max(0, needed - inLevel),
     progress: needed ? Math.min(1, inLevel / needed) : 1,
-    fastestPace: fastest, maxStamina: 100 + (level - 1) * 3,
-    recoverySec: Math.max(30, 60 - (level - 1)),
-    boosterUnlocked: level >= 5,
-    boosterDuration: level >= 30 ? 15 : level >= 20 ? 12 : 8,
-    boosterCooldown: 90, boosterCost: 12,
-    nextUnlock: MILESTONES.find((milestone) => milestone.level > level) || null,
+    fastestPace: row.pace, maxStamina: row.stamina,
+    recoverySec: row.recovery,
+    boosterUnlocked: row.boost > 0,
+    boosterDuration: row.boost,
+    boosterCooldown: rules.boostCooldown, boosterCost: rules.boostCost,
+    nextUnlock: next ? { level: next.level, title: row.boost ? '부스터 강화' : '부스터 해금', description: `${next.boost}초 가속 · 체력 ${next.stamina}` } : null,
   }
 }
-export function trainingFor(xp, intensity = 'steady') {
-  const growth = progressionFor(xp)
+export function trainingFor(xp, intensity = 'steady', anonymous = false) {
+  const rules = getSettings()
+  const growth = anonymous ? { level: null, maxStamina: rules.anonymousStamina, recoverySec: rules.anonymousRecovery, fastestPace: rules.anonymousPace, boosterUnlocked: false } : progressionFor(xp)
   const effort = INTENSITIES.find((item) => item.id === intensity) || INTENSITIES[1]
   return { ...growth, intensity: effort.id, intensityLabel: effort.label, paceSec: growth.fastestPace + effort.extraPace, drainMultiplier: effort.drain }
 }
 export function experienceFor({ distanceKm, completed, practice = false, anonymous = false }) {
   if (practice || anonymous) return { distance: 0, completion: 0, total: 0 }
-  const distance = Math.floor(Math.max(0, Number(distanceKm) || 0) * 100)
-  const completion = completed ? Math.floor(distance * .2) : 0
+  const distance = Math.floor(Math.max(0, Number(distanceKm) || 0) * getSettings().xpPerKm)
+  const completion = completed ? Math.floor(distance * getSettings().completionBonus) : 0
   return { distance, completion, total: distance + completion }
 }
