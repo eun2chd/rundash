@@ -6,7 +6,7 @@ const dotPos = (dist, lane = 0) => {
 }
 
 export default function Minimap({ me, others, stations = [] }) {
-  const [mx, my] = dotPos(me.dist)
+  const [mx, my] = dotPos(me.dist, me.lane)
   return (
     <svg className="minimap" viewBox={`0 0 ${MINIMAP.w} ${MINIMAP.h}`}>
       <path d={MINIMAP.d} fill="none" stroke="rgba(255,248,230,.25)" strokeWidth="9" strokeLinejoin="round" />

@@ -26,9 +26,11 @@ export default function FriendPanel({ social, onLocate, confirmAction }) {
     setResults(rows => rows.filter(row => row.id !== runner.id))
     setBlocks(await api.listBlocks())
   })
-  const partner = social.peers.find(peer => peer.paired)
+  const groupMembers = social.pair?.members || []
+  const groupSize = social.pair?.memberCount || groupMembers.length
+  const groupFull = groupSize >= 4
   return <div className="friends-widget">
-    <button type="button" className={`icon-btn friend-toggle ${open ? 'on' : ''}`} title="친구 찾기" aria-label="친구 찾기" aria-expanded={open} onClick={() => setOpen(value => !value)}><LuUsers />{social.invites.some(i => i.incoming) && <span className="friend-invite-dot" aria-label="새 초대" />}</button>
+    <button type="button" className={`icon-btn friend-toggle ${open ? 'on' : ''}`} title="친구 찾기" aria-label="친구 찾기" aria-expanded={open} onClick={() => setOpen(value => !value)}><LuUsers />{social.pair && <span className="friend-group-count">{groupSize}/4</span>}{social.invites.some(i => i.incoming) && <span className="friend-invite-dot" aria-label="새 초대" />}</button>
     {open && <section className="friends-panel" aria-label="친구 찾기와 동행">
       <header className="friend-panel-heading"><h2>친구와 같이 달리자</h2><p>닉네임으로 친구를 찾아 함께 달려요.</p></header>
       {!social.enabled ? <p>정식 계정으로 러닝 중일 때 사용할 수 있어요.</p> : <>
@@ -48,20 +50,20 @@ export default function FriendPanel({ social, onLocate, confirmAction }) {
             <strong>{runner.nickname}</strong><small>{runner.online ? '러닝 화면 접속 중' : '오프라인'} · {runner.location_public ? '위치 공개' : '위치 비공개'}</small>
             <div className="friend-actions">
               {(peer || (runner.location_public && runner.online)) && <button className="btn ghost" onClick={() => onLocate(runner.id)}><LuMapPin /> 위치 보기</button>}
-              <button className="btn primary" disabled={busy || !runner.online || !runner.allow_invites || !!social.pair || !social.connected} onClick={() => action(() => api.inviteFriend(runner.id), '동행 초대를 보냈어요. 상대의 수락을 기다려 주세요.')}>같이 달리기</button>
+              <button className="btn primary" disabled={busy || !runner.online || !runner.allow_invites || groupFull || !social.connected} onClick={() => action(() => api.inviteFriend(runner.id), '동행 초대를 보냈어요. 상대의 수락을 기다려 주세요.')}>같이 달리기</button>
               <button className="link" disabled={busy} onClick={() => block(runner)}>차단</button>
             </div>
           </article>
         })}
         {social.invites.map(invite => <article className="friend-row" key={invite.id}>
           <strong>{invite.nickname}님{invite.incoming ? '의 동행 초대' : '에게 보낸 초대'}</strong>
-          <small>60초 안에 수락할 수 있어요. 화면에서 나란히 달리며 거리·체력·경험치는 각자 유지해요.</small>
+          <small>나를 포함해 최대 4명, 앞 2명·뒤 2명으로 달려요. 60초 안에 수락해 주세요. 거리·체력·경험치는 각자 유지해요.</small>
           <div className="friend-actions">{invite.incoming ? <>
             <button className="btn primary" disabled={busy} onClick={() => action(() => api.respondInvite(invite.id, 'accept'), '동행을 시작했어요.')}>수락</button>
             <button className="btn ghost" disabled={busy} onClick={() => action(() => api.respondInvite(invite.id, 'decline'))}>거절</button>
           </> : <button className="btn ghost" disabled={busy} onClick={() => action(() => api.respondInvite(invite.id, 'cancel'))}>초대 취소</button>}</div>
         </article>)}
-        {social.pair && <article className="friend-row"><strong>{partner?.nickname || '친구'}님과 동행 중</strong><p>캐릭터는 옆 차선에 표시돼요. 러닝 기록은 각자 계산해요.</p><div className="friend-actions"><button className="btn ghost" disabled={busy} onClick={() => action(() => api.endPair(), '동행을 종료했어요.')}>혼자 달리기</button>{partner && <button className="link" disabled={busy} onClick={() => block(partner)}>차단</button>}</div></article>}
+        {social.pair && <article className="friend-row"><strong>함께 달리는 중 {groupSize}/4</strong><p>앞 2명·뒤 2명으로 달려요. 러닝 기록은 각자 계산해요.</p><ul className="friend-group-members">{groupMembers.map(member => <li key={member.id}><span>{member.nickname}</span>{social.peers.some(peer => peer.id === member.id) && <button className="link" disabled={busy} onClick={() => block(member)}>차단</button>}</li>)}</ul><div className="friend-actions"><button className="btn ghost" disabled={busy} onClick={() => action(() => api.endPair(), '동행을 종료했어요.')}>혼자 달리기</button></div></article>}
         <button className="link friend-blocks-toggle" disabled={busy} onClick={() => action(async () => { setBlocks(await api.listBlocks()); setBlocksLoaded(true) })}>차단 목록 보기</button>
         {blocksLoaded && !blocks.length && <p role="status">차단한 러너가 없어요.</p>}
         {blocks.map(runner => <div className="friend-row" key={runner.id}>{runner.nickname}<button className="link" disabled={busy} onClick={() => action(async () => { await api.blockFriend(runner.id, false); setBlocks(await api.listBlocks()) })}>차단 해제</button></div>)}

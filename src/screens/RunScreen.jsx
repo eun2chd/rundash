@@ -22,6 +22,7 @@ import useRaceRoom from '../lib/useRaceRoom'
 import { getSettings } from '../lib/settings'
 import { advanceElapsed, restoreSimulation, checkpointKey } from '../lib/runClock'
 import useRunningSocial, { peerDistance } from '../lib/useRunningSocial'
+import { formationOffset } from '../lib/formation'
 
 
 // 시뮬레이션 진행: 거리·체력·탈진/회복 (배속 적용)
@@ -30,14 +31,15 @@ function SimDriver({ tick }) {
   return null
 }
 
-const Scene = memo(function Scene({ sim, rhythm, profile, activity, ghosts, getMyDist, getGhostDist, getMyAction, items, stations, closedStations, biome, cheers, onCollect, tick, peers, getPeerDist, cameraDistance }) {
+const Scene = memo(function Scene({ sim, rhythm, profile, activity, ghosts, getMyDist, getGhostDist, getMyAction, items, stations, closedStations, biome, cheers, onCollect, tick, peers, getPeerDist, cameraDistance, getMyVisualDist, myLane }) {
   return (
     <>
       <SimDriver tick={tick} />
       <World biome={biome} />
       <CameraRig getDistance={cameraDistance} />
       <Runner
-        getDistance={getMyDist}
+        getDistance={getMyVisualDist}
+        lane={myLane}
         getAction={getMyAction}
         color={profile.color}
         skin={profile.skin}
@@ -62,7 +64,7 @@ const Scene = memo(function Scene({ sim, rhythm, profile, activity, ghosts, getM
           cheerKey={cheers[g.id]?.at}
         />
       ))}
-      {peers.map(peer => <Runner key={peer.id} getDistance={() => getPeerDist(peer)} lane={peer.paired ? 1.4 : -1.4} color={peer.color} skin={peer.skin} hair={peer.hair} outfit={peer.outfit} nickname={peer.nickname} getAction={() => ({ kneel: false, tired: 0, stopped: peer.paused })} />)}
+      {peers.map(peer => <Runner key={peer.id} getDistance={() => getPeerDist(peer)} lane={peer.paired ? formationOffset(peer.slot).lane : -1.4} color={peer.color} skin={peer.skin} hair={peer.hair} outfit={peer.outfit} nickname={peer.nickname} getAction={() => ({ kneel: false, tired: 0, stopped: peer.paused })} />)}
       {stations.map((st) => (
         <AidStation key={st.id} station={st} getMyDist={getMyDist} closed={closedStations.includes(st.id)} />
       ))}
@@ -143,7 +145,9 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
   const [locateId, setLocateId] = useState(null)
   const socialRef = useRef(social)
   socialRef.current = social
-  const getPeerDist = useCallback(peer => peer.paired ? sim.current.dist : peerDistance(peer), [])
+  const getPeerDist = useCallback(peer => peer.paired ? sim.current.dist + formationOffset(peer.slot).distance : peerDistance(peer), [])
+  const getMyVisualDist = useCallback(() => sim.current.dist + formationOffset(socialRef.current.pair?.mySlot).distance, [])
+  const myFormation = formationOffset(social.pair?.mySlot)
   const cameraDistance = () => {
     const target = socialRef.current.peers.find(peer => peer.id === locateId)
     return target ? getPeerDist(target) : sim.current.dist
@@ -457,6 +461,8 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
           peers={social.peers}
           getPeerDist={getPeerDist}
           cameraDistance={cameraDistance}
+          getMyVisualDist={getMyVisualDist}
+          myLane={myFormation.lane}
           sim={sim}
           rhythm={rhythm}
           profile={profile}
@@ -485,7 +491,8 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
           locating={!!locateId}
           onLocateFriend={id => { social.setFocusId(id); setLocateId(id) }}
           onReturnToRunner={() => { social.setFocusId(null); setLocateId(null) }}
-          realPeers={social.peers.map(peer => ({ ...peer, dist: getPeerDist(peer), lane: peer.paired ? 1.4 : -1.4 }))}
+          myVisualPose={{ distance: getMyVisualDist(), lane: myFormation.lane }}
+          realPeers={social.peers.map(peer => ({ ...peer, dist: getPeerDist(peer), lane: peer.paired ? formationOffset(peer.slot).lane : -1.4 }))}
           showActivity={showActivity}
           onToggleActivity={toggleActivity}
           getMyDist={getMyDist}

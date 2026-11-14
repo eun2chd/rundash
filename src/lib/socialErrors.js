@@ -1,5 +1,6 @@
 // Never show raw PostgREST, SQL, network, or implementation errors to players.
 const FRIENDLY_ERRORS = [
+  '동행은 나를 포함해 최대 4명이에요.', '동행 구성이 바뀌었어요. 새 초대를 받아 주세요.',
   '정식 계정으로 이용해 주세요.', '닉네임을 2~10자로 입력해 주세요.',
   '초대할 수 없는 러너예요.', '이미 동행 중이에요.', '잠시 후 다시 초대해 주세요.',
   '이미 초대를 보냈어요.', '초대를 찾을 수 없어요.', '이미 처리된 초대예요.',

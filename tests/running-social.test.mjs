@@ -115,5 +115,34 @@ test('social RPCs enforce location consent, invite ownership, exclusivity, block
    await identity(c); assert.equal((await tick(runs[2])).pair,null)
    assert.equal(await scalar('select public.locate_running_friend($1) value',[a]),null)
   })
+
+  await t.test('four-member groups show canonical names and seats; fifth acceptance is rejected; members can leave independently',async()=>{
+   const d='44444444-4444-4444-8444-444444444444',e='55555555-5555-4555-8555-555555555555'
+   const ra='aaaaaaaa-aaaa-4aaa-8aaa-000000000005',rd='aaaaaaaa-aaaa-4aaa-8aaa-000000000006',re='aaaaaaaa-aaaa-4aaa-8aaa-000000000007'
+   const cooldown=async()=>{await db.exec('reset role;');await db.exec("update public.running_invites set created_at=now()-interval '10 seconds'")}
+   await db.exec('reset role;')
+   for(const [id,name] of [[d,'Daisy'],[e,'Erin']]) {
+    await db.query('insert into auth.users(id) values($1)',[id]);await db.query("insert into public.profiles(id,nickname,color,skin) values($1,$2,'#e07b39','#f6d1b0')",[id,name])
+   }
+   for(const [id,run] of [[a,ra],[d,rd],[e,re]]) {await identity(id);await scalar("select public.start_training_run($1,1,'steady') value",[run]);await tick(run)}
+   await identity(b);await tick(runs[1]);await identity(c);await tick(runs[2])
+   await cooldown();await identity(a);const ab=await invite(b);await identity(b);await respond(ab,'accept')
+   let group=(await tick(runs[1])).pair;assert.equal(group.memberCount,2);assert.deepEqual(group.members.map(m=>m.nickname),['Alice','Bobby']);assert.deepEqual(group.members.map(m=>m.slot),[0,1])
+   await cooldown();await identity(a);const ac=await invite(c);await identity(c);await respond(ac,'accept');assert.equal((await tick(runs[2])).pair.memberCount,3)
+   await cooldown();await identity(a);const ad=await invite(d)
+   await cooldown();await identity(a);const ae=await invite(e)
+   await identity(d);await respond(ad,'accept');group=(await tick(rd)).pair
+   assert.equal(group.memberCount,4);assert.deepEqual(group.members.map(m=>m.slot),[0,1,2,3]);assert.deepEqual(group.members.map(m=>m.nickname),['Alice','Bobby','Carol','Daisy'])
+   await identity(e);await assert.rejects(respond(ae,'accept'),/최대 4명/);assert.equal((await tick(re)).pair,null)
+   await identity(b);await assert.rejects(invite(e),/최대 4명/)
+   await identity(a);await db.query('select public.end_running_pair()')
+   await identity(b);group=(await tick(runs[1])).pair;assert.equal(group.memberCount,3);assert.deepEqual(group.members.map(m=>m.slot),[0,1,2]);assert.equal(group.leader_id,b)
+   await cooldown();await identity(b);const be=await invite(e);await identity(e);await respond(be,'accept');assert.equal((await tick(re)).pair.memberCount,4)
+   await identity(c);await db.query('select public.block_running_friend($1,true)',[d]);assert.equal((await tick(runs[2])).pair,null)
+   await identity(b);assert.equal((await tick(runs[1])).pair.memberCount,3)
+   await db.exec('reset role;');await db.query("update public.runner_locations set updated_at=now()-interval '70 seconds' where user_id=$1",[d])
+   await identity(b);group=(await tick(runs[1])).pair;assert.equal(group.memberCount,2);assert.deepEqual(group.members.map(m=>m.slot),[0,1])
+   assert.equal(await scalar('select xp value from public.runner_progress where user_id=$1',[b]),0)
+  })
  } finally { await db.close() }
 })

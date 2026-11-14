@@ -18,12 +18,13 @@ import RunningMusic from './RunningMusic'
 import FriendPanel from './FriendPanel'
 import RoomPresence from './RoomPresence'
 import ConfirmDialog from './ConfirmDialog'
+import GroupRoster from './GroupRoster'
 
 export default function Hud({
   sim, getMyDist, getGhostDist, ghosts, nearestGhost, profile, config, totalM, biome,
   stats, items, stations, closedStations, rhythm, judge, cadence, toasts, paused, timeScale,
   onTimeScale, onPause, onQuit, onBeat, onCheer, onCollect, onCollectNearest, onBoost,
-  room, showActivity, onToggleActivity, realPeers = [], social, confirmAction, checkpointError, locating, onLocateFriend, onReturnToRunner, showPauseDialog = true,
+  room, showActivity, onToggleActivity, realPeers = [], myVisualPose, social, confirmAction, checkpointError, locating, onLocateFriend, onReturnToRunner, showPauseDialog = true,
 }) {
   const [t, setT] = useState(() => snapshot())
   const [showMap, setShowMap] = useState(false)
@@ -90,6 +91,7 @@ export default function Hud({
           <span className="pill-title">런대시</span>
           <span className="pill-sub">코스 01</span>
         </div>
+        <GroupRoster group={social.pair} userId={room.userId} />
         {locating && <button className="chat-toggle" onClick={onReturnToRunner}>내 러너로 돌아가기</button>}
         {checkpointError && <p className="checkpoint-notice" role="status">{checkpointError}</p>}
         <div className="pill info-pill"><BiomeIcon /> {Math.floor(km) + 1}km 구간 · {biome.name}</div>
@@ -104,7 +106,7 @@ export default function Hud({
         ) : (
           <div className="pill info-pill dim"><LuDroplet /> 남은 보급소 없음</div>
         )}
-        {showMap && <div className="panel hud-left-map" aria-label="러닝 미니맵"><Minimap me={{ dist: t.dist, color: profile.color }} others={[...realPeers, ...ghosts.map(g => ({ id: g.id, dist: getGhostDist(g), color: g.color, lane: g.lane }))]} stations={stations.map(x => ({ ...x, closed: closedStations.includes(x.id) }))} /></div>}
+        {showMap && <div className="panel hud-left-map" aria-label="러닝 미니맵"><Minimap me={{ dist: myVisualPose?.distance ?? t.dist, lane: myVisualPose?.lane || 0, color: profile.color }} others={[...realPeers, ...ghosts.map(g => ({ id: g.id, dist: getGhostDist(g), color: g.color, lane: g.lane }))]} stations={stations.map(x => ({ ...x, closed: closedStations.includes(x.id) }))} /></div>}
         <ScoreSummary stats={stats} />
         {activeStation && <SupplyPanel station={activeStation} items={activeItems} distance={t.dist} resting={t.resting} onCollect={onCollect} />}
       </div>
