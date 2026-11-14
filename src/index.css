@@ -598,8 +598,9 @@ input[type=range] { width: 100%; margin: 14px 0 10px; accent-color: var(--olive)
 .station-sign > div > strong { display: flex; align-items: center; gap: 4px; font-size: 10px; }
 .station-sign > div > span { display: block; font-size: 10px; margin-top: 3px; }
 .runner-nameplate { position: relative; display: inline-flex; align-items: center; }
-.runner-activity { position: absolute; left: calc(100% - 8px); bottom: calc(100% + 3px); transform-origin: bottom left; }
-.runner-activity.preview-activity { transform: scale(.75); }
+.runner-activity { position: absolute; left: 0; top: 0; transform-origin: top left; }
+.runner-activity .activity-bubble { width: 112px; height: 52px; padding: 0 8px 10px; font-size: 11px; }
+.runner-activity.preview-activity { left: calc(100% - 8px); top: auto; bottom: calc(100% + 3px); }
 .activity-visibility { margin-bottom: 16px; }
 
 /* Course timeline */

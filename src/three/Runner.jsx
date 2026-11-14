@@ -1,12 +1,13 @@
-import { useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import * as THREE from 'three'
-import { useFrame } from '@react-three/fiber'
+import { useFrame, useThree } from '@react-three/fiber'
 import { Html } from '@react-three/drei'
 import { poseAt } from './track'
 import { CHEER_ICONS } from '../lib/icons'
 import { normalizeOutfit } from '../lib/outfit'
 import { Headwear, RunningShoe, RunningVest } from './RunnerGear'
 import ActivityBubble from '../components/ActivityBubble'
+import { registerActivity } from './activityLayout'
 
 const tmp = { pos: new THREE.Vector3(), tan: new THREE.Vector3() }
 const camPos = new THREE.Vector3()
@@ -31,6 +32,10 @@ export default function Runner({
   cheerKey,
   getAction, // () => ({ kneel: bool, tired: 0~1 })
 }) {
+  const scene = useThree(state => state.scene)
+  useEffect(() => {
+    if (!inPlace && activity && tag.current && activityTag.current) return registerActivity(scene, tag.current, activityTag.current)
+  }, [scene, inPlace, activity])
   const root = useRef()
   const bob = useRef()
   const lArm = useRef()
@@ -77,7 +82,7 @@ export default function Runner({
       root.current.getWorldPosition(camPos)
       const dist = camPos.distanceTo(camera.position)
       tag.current.style.opacity = dist > 60 ? 0 : dist > 35 ? 0.5 : 1
-      if (activityTag.current) activityTag.current.style.visibility = dist > 60 ? 'hidden' : 'visible'
+      if (activityTag.current && (inPlace || dist > 60)) activityTag.current.style.visibility = dist > 60 ? 'hidden' : 'visible'
     }
   })
 
