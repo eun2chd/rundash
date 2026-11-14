@@ -22,8 +22,8 @@ export default function Login({ onLogin, onSignUp, onHelp, confirmAction }) {
     <div className="login-screen">
       <div className="login-hero">
         <Logo />
-        <h1>나만의 페이스로<br />러너와 함께 성장해요</h1>
-        <p>러닝 강도와 거리를 정하고, 달린 만큼 경험치를 쌓아요.<br />레벨이 오르면 더 빠르고 튼튼한 러너가 돼요.</p>
+        <h1>같이 달리자!<br />나만의 캐릭터와 러닝</h1>
+        <p>같이 뛸 사람을 찾고 있나요? 온라인에서 다른 러너들과 함께 달려요.<br />일하는 동안에도 내 3D 캐릭터는 러닝 중!<br />러닝 강도와 거리, 페이스를 정하고 달린 만큼 경험치를 쌓는 캐릭터 성장 게임이에요.</p>
         <ul className="hero-steps">
           <li><b>1</b> 닉네임을 정하고 캐릭터 생성</li>
           <li><b>2</b> 나에게 맞는 러닝 강도 · 거리 선택</li>
