@@ -16,16 +16,18 @@ export const STAMINA = {
 export const drainPerKm = (paceSec) => STAMINA.drainPerKmBase * Math.pow(STAMINA.basePace / paceSec, 1.2)
 
 // 체력 → 속도 배율
-export function speedMultFor(st) {
+export function speedMultFor(st, max = 100) {
+  st = st / max * 100
   if (st >= 60) return 1
   if (st >= 25) return 0.75 + ((st - 25) / 35) * 0.25
   return 0.5 + (st / 25) * 0.25
 }
 
 // 체력 → 지친 정도(애니메이션용 0~1)
-export const tiredFor = (st) => (st >= 60 ? 0 : Math.min(1, (60 - st) / 60))
+export const tiredFor = (st, max = 100) => (st / max * 100 >= 60 ? 0 : Math.min(1, (60 - st / max * 100) / 60))
 
-export function staminaState(st, resting) {
+export function staminaState(st, resting, max = 100) {
+  st = st / max * 100
   if (resting) return { label: '탈진 · 회복 중', tone: 'bad' }
   if (st >= 60) return { label: '좋음', tone: 'good' }
   if (st >= 25) return { label: '지침', tone: 'warn' }

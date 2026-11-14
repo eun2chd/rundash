@@ -1,24 +1,29 @@
 import { useEffect, useState } from 'react'
 import {
   LuMusic, LuMegaphone, LuHand, LuPause, LuPlay, LuLogOut, LuMap,
-  LuHeartPulse, LuDroplet, LuBatteryLow, LuGauge,
+  LuHeartPulse, LuDroplet, LuBatteryLow, LuGauge, LuZap, LuCloud, LuCloudOff, LuMessageCircle, LuUsers,
 } from 'react-icons/lu'
 import { fmtTime, fmtPace } from '../lib/pace'
 import { STAMINA, staminaState } from '../lib/stamina'
-import { ITEM_TYPES } from '../lib/mockData'
-import { BIOME_ICONS, ITEM_ICONS } from '../lib/icons'
+import { BIOME_ICONS } from '../lib/icons'
 import Minimap from './Minimap'
 import RhythmBar from './RhythmBar'
+import { experienceFor } from '../lib/progression'
+import ScoreSummary from './ScoreSummary'
+import SupplyPanel from './SupplyPanel'
+import RunnerChat from './RunnerChat'
 
 const SPEEDS = [1, 10, 30, 60]
 
 export default function Hud({
   sim, getMyDist, getGhostDist, ghosts, nearestGhost, profile, config, totalM, biome,
   stats, items, stations, closedStations, rhythm, judge, cadence, toasts, paused, timeScale,
-  onTimeScale, onPause, onQuit, onBeat, onCheer, onCollect, onCollectNearest,
+  onTimeScale, onPause, onQuit, onBeat, onCheer, onCollect, onCollectNearest, onBoost,
+  room, showActivity, onToggleActivity,
 }) {
   const [t, setT] = useState(() => snapshot())
-  const [showMap, setShowMap] = useState(true)
+  const [showMap, setShowMap] = useState(false)
+  const [showChat, setShowChat] = useState(() => window.innerWidth > 760)
 
   function snapshot() {
     const s = sim.current
@@ -29,6 +34,9 @@ export default function Hud({
       mult: s.speedMult,
       resting: s.resting,
       restLeft: s.restLeft,
+      boostLeft: s.boostLeft,
+      boostCooldownLeft: s.boostCooldownLeft,
+      practice: s.practice,
       near: nearestGhost ? nearestGhost() : null,
     }
   }
@@ -49,10 +57,12 @@ export default function Hud({
   const curSpeed = s.speed * Math.max(t.mult || 0, 0.5)
   const remainSec = (totalM - t.dist) / curSpeed + (t.resting ? Math.max(0, t.restLeft) : 0)
   const curPace = t.resting ? null : config.paceSec / (t.mult || 1)
-  const slowPct = Math.round((1 - (t.mult || 0)) * 100)
+  const slowPct = Math.max(0, Math.round((1 - (t.mult || 0)) * 100))
 
-  const st = staminaState(t.stamina, t.resting)
-  const stPct = Math.max(0, Math.min(100, t.stamina))
+  const st = staminaState(t.stamina, t.resting, s.maxStamina)
+  const stPct = Math.max(0, Math.min(100, t.stamina / s.maxStamina * 100))
+  const xpEstimate = experienceFor({ distanceKm: km, completed: false, practice: t.practice, anonymous: config.anonymous }).total
+  const boostDisabled = !config.boosterUnlocked || paused || t.resting || t.boostCooldownLeft > 0 || t.stamina <= config.boosterCost
 
   // 보급소
   const activeStation = stations.find(
@@ -61,11 +71,6 @@ export default function Hud({
   const nextStation = stations.find((x) => x.dist + STAMINA.stationGrabAfterM > t.dist && !closedStations.includes(x.id))
   const activeItems = activeStation ? items.filter((i) => i.stationId === activeStation.id && i.status === 'pending') : []
   const medalNear = items.some((i) => !i.stationId && i.status === 'pending' && i.dist - t.dist < 60 && i.dist - t.dist > -4)
-
-  const ranking = [
-    { id: 'me', nickname: profile.nickname, color: profile.color, dist: t.dist, me: true },
-    ...ghosts.map((g) => ({ id: g.id, nickname: g.nickname, color: g.color, dist: Math.max(0, getGhostDist(g)) })),
-  ].sort((a, b) => b.dist - a.dist)
 
   return (
     <div className="hud">
@@ -76,10 +81,12 @@ export default function Hud({
         <div className="pill">
           <button className="icon-btn" title="종료" onClick={onQuit}><LuLogOut /></button>
           <button className={`icon-btn ${showMap ? 'on' : ''}`} title="미니맵" onClick={() => setShowMap((v) => !v)}><LuMap /></button>
+          <button className={`icon-btn ${showActivity ? 'on' : ''}`} title={showActivity ? '구름 말풍선 숨기기' : '구름 말풍선 보이기'} aria-label={showActivity ? '구름 말풍선 숨기기' : '구름 말풍선 보이기'} aria-pressed={showActivity} onClick={onToggleActivity}>{showActivity ? <LuCloud /> : <LuCloudOff />}</button>
           <span className="pill-title">런대시</span>
-          <span className="pill-sub">코스 01 · {ghosts.length + 1}명</span>
+          <span className="pill-sub">코스 01</span>
         </div>
         <div className="pill info-pill"><BiomeIcon /> {Math.floor(km) + 1}km 구간 · {biome.name}</div>
+        <div className="pill info-pill">Lv.{config.level} · {config.intensityLabel} · {config.anonymous ? '익명 체험' : t.practice ? '개발 체험 · XP 없음' : `예상 +${xpEstimate} XP`}</div>
         {nextStation ? (
           <div className={`pill info-pill ${activeStation ? 'station-on' : ''}`}>
             <LuDroplet />
@@ -90,6 +97,8 @@ export default function Hud({
         ) : (
           <div className="pill info-pill dim"><LuDroplet /> 남은 보급소 없음</div>
         )}
+        <ScoreSummary stats={stats} />
+        {activeStation && <SupplyPanel station={activeStation} items={activeItems} distance={t.dist} resting={t.resting} onCollect={onCollect} />}
       </div>
 
       {/* 상단 중앙: 체력바 + 기록 */}
@@ -103,7 +112,7 @@ export default function Hud({
                 {st.label}
                 {!t.resting && slowPct > 0 ? ` · 속도 -${slowPct}%` : ''}
               </span>
-              <b>{Math.round(stPct)}</b>
+              <b>{Math.round(t.stamina)} / {s.maxStamina}</b>
             </div>
             <div className="stamina-bar">
               <div className="stamina-fill" style={{ width: `${stPct}%` }} />
@@ -113,7 +122,7 @@ export default function Hud({
           </div>
         </div>
 
-        <div className="hint">보급품·메달 클릭 · E 챙기기 · Space 박자 · C 응원 · P 일시정지</div>
+        <div className="hint">E 챙기기 · Space 박자 · C 응원 · B 부스터 · P 일시정지</div>
 
         <div className="stat-card">
           <div className="stat-main">
@@ -142,21 +151,24 @@ export default function Hud({
             ))}
           </div>
           <div className="stat-foot">
-            <span><LuGauge /> 현재 {curPace ? fmtPace(curPace) : '휴식'} <em>/ 목표 {fmtPace(config.paceSec)}</em></span>
-            <span>목표 기록 {fmtTime(s.targetSec)}</span>
+            <span><LuGauge /> 현재 {curPace ? fmtPace(curPace) : '휴식'} <em>/ {config.intensityLabel}</em></span>
+            <span>기준 {fmtTime(s.targetSec)}</span>
           </div>
         </div>
       </div>
 
       {/* 우상단 */}
       <div className="hud-tr">
+        <div className="room-presence"><LuUsers /><span>{room.connection === 'connected' ? <>접속 <b>{room.online}</b>명 · 달리는 중 <b>{room.running}</b>명</> : '접속 인원 확인 중…'}</span><span className={`connection-dot ${room.connection === 'connected' ? 'online' : ''}`} /></div>
+        <button type="button" className="chat-toggle" aria-expanded={showChat} onClick={() => setShowChat((visible) => !visible)}><LuMessageCircle /> {showChat ? '채팅 숨기기' : '채팅 보이기'}</button>
         <div className="pill">
-          <span className="pill-sub">목업 배속</span>
+          {import.meta.env.DEV && <><span className="pill-sub">개발용 배속</span>
           {SPEEDS.map((v) => (
             <button key={v} className={`seg ${timeScale === v ? 'on' : ''}`} onClick={() => onTimeScale(v)}>{v}x</button>
-          ))}
+          ))}</>}
           <button className="icon-btn" onClick={onPause} title="일시정지 (P)">{paused ? <LuPlay /> : <LuPause />}</button>
         </div>
+        {showChat && <RunnerChat room={room} onHide={() => setShowChat(false)} />}
         {showMap && (
           <div className="panel">
             <Minimap
@@ -164,61 +176,16 @@ export default function Hud({
               others={ghosts.map((g) => ({ id: g.id, dist: getGhostDist(g), color: g.color, lane: g.lane }))}
               stations={stations.map((x) => ({ ...x, closed: closedStations.includes(x.id) }))}
             />
-            <ol className="ranking">
-              {ranking.map((r, i) => (
-                <li key={r.id} className={r.me ? 'me' : ''}>
-                  <span className="rank">{i + 1}</span>
-                  <span className="dot" style={{ background: r.color }} />
-                  <span className="rk-name">{r.nickname}</span>
-                  <span className="rk-dist">{(r.dist / 1000).toFixed(2)}km</span>
-                </li>
-              ))}
-            </ol>
+
           </div>
         )}
-      </div>
-
-      {/* 좌하단: 점수 */}
-      <div className="hud-bl">
-        <div className="score-card">
-          <div className="score">{stats.score.toLocaleString()}<small>pt</small></div>
-          <div className="score-row">
-            <span>콤보 <b>{stats.combo}</b></span>
-            <span>최대 <b>{stats.maxCombo}</b></span>
-          </div>
-          <div className="score-row">
-            <span>보급 <b>{stats.supplies}</b></span>
-            <span>메달 <b>{stats.medals}</b></span>
-            <span>응원 <b>{stats.cheersSent}</b></span>
-          </div>
-        </div>
       </div>
 
       {/* 하단 */}
       <div className="hud-bc">
-        {activeStation && (
-          <div className="supply-panel">
-            <div className="supply-title"><LuDroplet /> 보급소 {activeStation.n} — 지나치면 끝!</div>
-            <div className="supply-items">
-              {activeItems.length ? (
-                activeItems.map((i) => {
-                  const I = ITEM_ICONS[i.type]
-                  return (
-                    <button key={i.id} className={`supply-btn ${i.type}`} onClick={() => onCollect(i)} disabled={t.resting}>
-                      <I />
-                      <span>{ITEM_TYPES[i.type].label}</span>
-                      <small>체력 +{ITEM_TYPES[i.type].restore}</small>
-                    </button>
-                  )
-                })
-              ) : (
-                <span className="supply-empty">다 챙겼어요</span>
-              )}
-            </div>
-          </div>
-        )}
-        <RhythmBar rhythm={rhythm} judge={judge} onBeat={onBeat} cadence={cadence} />
+        <RhythmBar rhythm={rhythm} judge={judge} onBeat={onBeat} cadence={cadence} disabled={paused || t.resting} />
         <div className="dock">
+          <button className={`dock-btn booster-btn ${t.boostLeft > 0 ? 'boosting' : ''}`} disabled={boostDisabled} onClick={onBoost} title={config.boosterUnlocked ? `속도 +50% · 체력 ${config.boosterCost} 소모 · 종료 후 90초 재충전` : '레벨 5에서 해금'}><LuZap /><span>{!config.boosterUnlocked ? 'Lv.5 부스터' : t.boostLeft > 0 ? `가속 ${Math.ceil(t.boostLeft)}초` : t.boostCooldownLeft > 0 ? `충전 ${Math.ceil(t.boostCooldownLeft)}초` : t.stamina <= config.boosterCost ? '체력 부족' : '부스터'}</span><kbd>B</kbd></button>
           <button className="dock-btn" onClick={onBeat}><LuMusic /><span>박자</span><kbd>Space</kbd></button>
           <button className={`dock-btn ${t.near ? 'glow' : ''}`} onClick={onCheer}>
             <LuMegaphone /><span>{t.near ? `${t.near.g.nickname} 응원` : '응원'}</span><kbd>C</kbd>
@@ -241,8 +208,8 @@ export default function Hud({
           <LuBatteryLow className="rest-icon" />
           <div className="rest-title">탈진 — 무릎 꿇고 숨 고르는 중</div>
           <div className="rest-time">{fmtTime(Math.max(0, t.restLeft))}</div>
-          <div className="rest-bar"><div style={{ width: `${(1 - Math.max(0, t.restLeft) / STAMINA.recoverySec) * 100}%` }} /></div>
-          <div className="rest-sub">회복이 끝나면 체력 {STAMINA.recoverTo}로 다시 달려요</div>
+          <div className="rest-bar"><div style={{ width: `${(1 - Math.max(0, t.restLeft) / s.recoverySec) * 100}%` }} /></div>
+          <div className="rest-sub">회복이 끝나면 체력 {Math.round(s.recoverTo)}로 다시 달려요</div>
         </div>
       )}
 

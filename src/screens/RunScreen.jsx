@@ -1,6 +1,7 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+// @refresh reset
+import { forwardRef, memo, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
-import { LuFlag, LuBatteryWarning, LuBatteryLow, LuFootprints, LuDroplet } from 'react-icons/lu'
+import { LuFlag, LuBatteryWarning, LuBatteryLow, LuFootprints, LuDroplet, LuZap } from 'react-icons/lu'
 import World from '../three/World'
 import Runner from '../three/Runner'
 import CameraRig from '../three/CameraRig'
@@ -10,53 +11,30 @@ import { BIOMES, biomeIndexAt } from '../three/biomes'
 import { loopGap } from '../three/track'
 import { MOCK_RUNNERS, ITEM_TYPES, generateCourse } from '../lib/mockData'
 import { cadenceFor, speedMps, totalRunSec } from '../lib/pace'
-import { STAMINA, drainPerKm, speedMultFor, tiredFor } from '../lib/stamina'
+import { STAMINA, drainPerKm, tiredFor } from '../lib/stamina'
+import { activateBooster, advanceSimulation } from '../lib/simulation'
+import { api } from '../lib/api'
 import { BIOME_ICONS, CHEER_ICONS, CHEER_KEYS, ITEM_ICONS } from '../lib/icons'
 import Hud from '../components/Hud'
 import Loading from '../components/Loading'
+import { judgeRhythm } from '../lib/rhythm'
+import useRaceRoom from '../lib/useRaceRoom'
 
 const NEAR_M = 18
 
 // 시뮬레이션 진행: 거리·체력·탈진/회복 (배속 적용)
-function SimDriver({ sim }) {
+function SimDriver({ sim, rhythm }) {
   useFrame((_, dt) => {
-    const s = sim.current
-    if (s.paused || s.finished) return
-    const step = Math.min(dt, 0.1) * s.timeScale
-    s.elapsed += step
-
-    if (s.resting) {
-      s.restLeft -= step
-      s.restSec += step
-      s.speedMult = 0
-      s.stamina = STAMINA.recoverTo * (1 - Math.max(0, s.restLeft) / STAMINA.recoverySec)
-      if (s.restLeft <= 0) {
-        s.resting = false
-        s.stamina = STAMINA.recoverTo
-      }
-      return
-    }
-
-    s.speedMult = speedMultFor(s.stamina)
-    const dd = s.speed * s.speedMult * step
-    s.dist = Math.min(s.totalM, s.dist + dd)
-    s.stamina = Math.max(0, s.stamina - (dd / 1000) * s.drain)
-
-    if (s.dist >= s.totalM) {
-      s.finished = true
-    } else if (s.stamina <= 0) {
-      s.resting = true
-      s.restLeft = STAMINA.recoverySec
-      s.exhaust++
-    }
+    if (!sim.current.paused && !sim.current.finished && !sim.current.resting) rhythm.current.elapsed += Math.min(dt, .1)
+    advanceSimulation(sim.current, dt)
   })
   return null
 }
 
-const Scene = memo(function Scene({ sim, profile, ghosts, getMyDist, getGhostDist, getMyAction, items, stations, closedStations, biome, cheers, onCollect }) {
+const Scene = memo(function Scene({ sim, rhythm, profile, activity, ghosts, getMyDist, getGhostDist, getMyAction, items, stations, closedStations, biome, cheers, onCollect }) {
   return (
     <>
-      <SimDriver sim={sim} />
+      <SimDriver sim={sim} rhythm={rhythm} />
       <World biome={biome} />
       <CameraRig getDistance={getMyDist} />
       <Runner
@@ -65,7 +43,9 @@ const Scene = memo(function Scene({ sim, profile, ghosts, getMyDist, getGhostDis
         color={profile.color}
         skin={profile.skin}
         hair={profile.hair}
+        outfit={profile.outfit}
         nickname={profile.nickname}
+        activity={activity}
         isMe
         cheer={cheers.me?.icon}
         cheerKey={cheers.me?.at}
@@ -95,7 +75,7 @@ const Scene = memo(function Scene({ sim, profile, ghosts, getMyDist, getGhostDis
   )
 })
 
-export default function RunScreen({ profile, config, onFinish }) {
+export default forwardRef(function RunScreen({ profile, config, onFinish, confirmAction, onActivityVisibilityChange }, ref) {
   const totalM = config.distanceKm * 1000
   const cadence = cadenceFor(config.paceSec)
   const ghosts = MOCK_RUNNERS
@@ -108,8 +88,17 @@ export default function RunScreen({ profile, config, onFinish }) {
     totalM,
     targetSec: totalRunSec(config.paceSec, config.distanceKm),
     speed: speedMps(config.paceSec),
-    drain: drainPerKm(config.paceSec),
-    stamina: STAMINA.max,
+    drain: drainPerKm(config.paceSec) * config.drainMultiplier,
+    stamina: config.maxStamina,
+    maxStamina: config.maxStamina,
+    recoverySec: config.recoverySec,
+    recoverTo: config.maxStamina * .4,
+    boosterUnlocked: config.boosterUnlocked,
+    boosterDuration: config.boosterDuration,
+    boosterCooldown: config.boosterCooldown,
+    boosterCost: config.boosterCost,
+    boostLeft: 0, boostCooldownLeft: 0, boostUses: 0,
+    practice: false,
     speedMult: 1,
     resting: false,
     restLeft: 0,
@@ -117,11 +106,11 @@ export default function RunScreen({ profile, config, onFinish }) {
     exhaust: 0,
     paused: true,
     finished: false,
-    timeScale: 10,
+    timeScale: 1,
   })
   const getMyDist = useCallback(() => sim.current.dist, [])
   const getGhostDist = useCallback((g) => g.start + (sim.current.elapsed * 1000) / g.paceSec, [])
-  const getMyAction = useCallback(() => ({ kneel: sim.current.resting, tired: tiredFor(sim.current.stamina) }), [])
+  const getMyAction = useCallback(() => ({ kneel: sim.current.resting, tired: tiredFor(sim.current.stamina, sim.current.maxStamina), boosting: sim.current.boostLeft > 0 }), [])
 
   const [ready, setReady] = useState(false)
   const [items, setItems] = useState(course.items)
@@ -135,11 +124,16 @@ export default function RunScreen({ profile, config, onFinish }) {
   const [toasts, setToasts] = useState([])
   const [judge, setJudge] = useState(null)
   const [paused, setPaused] = useState(false)
-  const [timeScale, setTimeScale] = useState(10)
+  const [showActivity, setShowActivity] = useState(config.showActivity !== false)
+  const room = useRaceRoom({ userId: profile.userId, nickname: profile.nickname, paused: paused || !ready })
+  const toggleActivity = () => { const next = !showActivity; setShowActivity(next); onActivityVisibilityChange?.(next) }
+  const [timeScale, setTimeScale] = useState(1)
   const stats = useRef({ score: 0, collected: 0, supplies: 0, missedSupplies: 0, medals: 0, combo: 0, maxCombo: 0, cheersSent: 0, cheersGot: 0, perfect: 0, good: 0 })
   const [statsView, setStatsView] = useState({ ...stats.current })
-  const rhythm = useRef({ start: performance.now(), period: (4 * 60) / cadence, lastIdx: -1 })
+  const rhythm = useRef({ elapsed: 0, period: (4 * 60) / cadence, lastIdx: -1 })
   const finishedRef = useRef(false)
+  const exitPending = useRef(false)
+  const manualPending = useRef(false)
   const lastCheer = useRef({})
   const flags = useRef({ resting: false, low: false })
 
@@ -155,7 +149,7 @@ export default function RunScreen({ profile, config, onFinish }) {
     const id = setTimeout(() => {
       setReady(true)
       sim.current.paused = false
-      rhythm.current.start = performance.now()
+      rhythm.current.elapsed = 0
       toast(`출발! ${BIOMES[0].name} 구간`, 'km', LuFlag)
     }, 1400)
     return () => clearTimeout(id)
@@ -171,14 +165,19 @@ export default function RunScreen({ profile, config, onFinish }) {
     return best
   }, [getMyDist, getGhostDist, ghosts])
 
-  const finish = (completed) => {
+  const finish = (completed, destination = 'result') => {
     if (finishedRef.current) return
     finishedRef.current = true
     sim.current.paused = true
     const s = sim.current
     onFinish({
+      id: config.id,
+      intensity: config.intensity,
+      practice: s.practice,
+      boostUses: s.boostUses,
       completed,
       nickname: profile.nickname,
+      activity: config.activity || 'rest',
       targetKm: config.distanceKm,
       distanceKm: s.dist / 1000,
       elapsedSec: s.elapsed,
@@ -190,8 +189,34 @@ export default function RunScreen({ profile, config, onFinish }) {
       suppliesTotal: itemsRef.current.filter((i) => i.stationId).length,
       medalsTotal: itemsRef.current.filter((i) => !i.stationId).length,
       ...stats.current,
-    })
+    }, destination)
   }
+
+  const requestExit = async (destination = 'result') => {
+    if (finishedRef.current || sim.current.finished || exitPending.current || !ready) return
+    exitPending.current = true
+    const wasPaused = sim.current.paused
+    sim.current.paused = true
+    setPaused(true)
+    const exitingToMenu = destination !== 'result'
+    try {
+      const accepted = await confirmAction({
+        title: destination === 'logout' ? '러닝을 종료하고 로그아웃할까요?' : exitingToMenu ? '러닝을 종료하고 이동할까요?' : '러닝을 여기서 종료할까요?',
+        description: config.anonymous ? '현재까지 달린 결과를 확인할 수 있지만, 익명 체험 기록과 경험치는 저장되지 않아요.' : sim.current.practice ? '개발 체험 기록으로 저장되며 경험치는 지급되지 않아요.' : '달린 거리까지 기록과 경험치를 저장해요. 남은 코스는 이어서 달릴 수 없어요.',
+        confirmLabel: destination === 'logout' ? '종료 후 로그아웃' : exitingToMenu ? '종료하고 이동' : '종료하고 결과 보기',
+        cancelLabel: wasPaused ? '돌아가기' : '계속 달리기',
+      })
+      if (accepted) finish(false, destination)
+      else { sim.current.paused = wasPaused; setPaused(wasPaused) }
+    } finally { exitPending.current = false }
+  }
+  const pauseForManual = () => {
+    if (!ready || finishedRef.current || sim.current.finished || exitPending.current) return null
+    const wasPaused = sim.current.paused
+    manualPending.current = true; sim.current.paused = true; setPaused(true)
+    return () => { manualPending.current = false; if (!finishedRef.current) { sim.current.paused = wasPaused; setPaused(wasPaused) } }
+  }
+  useImperativeHandle(ref, () => ({ requestExit, pauseForManual }))
 
   // 아이템/보급품 줍기
   const canGrab = (item, my) => {
@@ -218,7 +243,7 @@ export default function RunScreen({ profile, config, onFinish }) {
     let msg = `${t.label} +${pts}pt`
     if (t.restore) {
       const before = s.stamina
-      s.stamina = Math.min(STAMINA.max, s.stamina + t.restore)
+      s.stamina = Math.min(s.maxStamina, s.stamina + t.restore)
       stats.current.supplies++
       msg = `${t.label} · 체력 +${Math.round(s.stamina - before)}`
     } else {
@@ -262,19 +287,9 @@ export default function RunScreen({ profile, config, onFinish }) {
   const hitBeat = () => {
     if (sim.current.paused || sim.current.resting) return
     const r = rhythm.current
-    const sec = (performance.now() - r.start) / 1000
-    const idx = Math.round(sec / r.period)
-    if (idx === r.lastIdx) return
-    r.lastIdx = idx
-    const p = (sec % r.period) / r.period
-    const off = Math.min(p, 1 - p) * r.period
-    const s = stats.current
-    let res
-    if (off < 0.09) { res = 'PERFECT'; s.perfect++; s.combo++; s.score += 5 }
-    else if (off < 0.2) { res = 'GOOD'; s.good++; s.combo++; s.score += 2 }
-    else { res = 'MISS'; s.combo = 0 }
-    s.maxCombo = Math.max(s.maxCombo, s.combo)
-    setJudge({ res, at: Date.now(), combo: s.combo })
+    const judgment = judgeRhythm(r, stats.current)
+    if (!judgment) return
+    setJudge({ ...judgment, at: Date.now() })
     bump()
   }
 
@@ -285,19 +300,30 @@ export default function RunScreen({ profile, config, onFinish }) {
   }
 
   const changeScale = (v) => {
+    if (!import.meta.env.DEV || ![1, 10, 30, 60].includes(v)) return
+    if (v > 1 && !sim.current.practice) {
+      sim.current.practice = true
+      if (!config.anonymous) api.markPractice(config.id).catch(() => toast('체험 기록으로만 처리돼요. 경험치는 지급되지 않아요.', 'warn'))
+      toast('개발용 배속 · 이번 러닝은 경험치가 지급되지 않아요.', 'warn')
+    }
     sim.current.timeScale = v
     setTimeScale(v)
   }
 
+  const boost = () => {
+    if (activateBooster(sim.current)) toast(`부스터! ${config.boosterDuration}초 동안 속도 +50%`, 'good', LuZap)
+  }
+
   const handlers = useRef({})
-  handlers.current = { hitBeat, cheer, collectNearest, togglePause }
+  handlers.current = { hitBeat, cheer, collectNearest, togglePause, boost }
   useEffect(() => {
     const onKey = (e) => {
-      if (e.repeat || e.target.tagName === 'INPUT') return
+      if (exitPending.current || manualPending.current || e.repeat || e.target.closest('input, textarea, select, [contenteditable="true"], .runner-chat')) return
       const h = handlers.current
       if (e.code === 'Space') { e.preventDefault(); h.hitBeat() }
       else if (e.code === 'KeyC') h.cheer()
       else if (e.code === 'KeyE') h.collectNearest()
+      else if (e.code === 'KeyB') h.boost()
       else if (e.code === 'KeyP' || e.code === 'Escape') h.togglePause()
     }
     window.addEventListener('keydown', onKey)
@@ -340,18 +366,18 @@ export default function RunScreen({ profile, config, onFinish }) {
     // 체력 상태 알림
     if (s.resting && !flags.current.resting) {
       flags.current.resting = true
-      toast(`탈진! 무릎 꿇고 ${STAMINA.recoverySec}초 회복해야 해요`, 'bad', LuBatteryLow)
+      toast(`탈진! ${s.recoverySec}초 회복해야 해요`, 'bad', LuBatteryLow)
     } else if (!s.resting && flags.current.resting) {
       flags.current.resting = false
       flags.current.low = false
       toast('회복 완료 — 다시 출발!', 'km', LuFootprints)
     }
-    if (!s.resting && s.stamina < 25 && !flags.current.low) {
+    if (!s.resting && s.stamina / s.maxStamina < .25 && !flags.current.low) {
       flags.current.low = true
       const next = stations.find((st) => st.dist + STAMINA.stationGrabAfterM > my)
       toast(next ? `체력이 바닥나고 있어요 — 보급소 ${next.n}까지 ${Math.max(0, Math.round(next.dist - my))}m` : '체력이 바닥나고 있어요', 'warn', LuBatteryWarning)
     }
-    if (s.stamina >= 35) flags.current.low = false
+    if (s.stamina / s.maxStamina >= .35) flags.current.low = false
 
     if (!s.paused && !s.resting && Math.random() < 0.015) {
       const n = nearestGhost()
@@ -375,7 +401,9 @@ export default function RunScreen({ profile, config, onFinish }) {
       <Canvas camera={{ fov: 55, near: 0.1, far: 700, position: [0, 5, -10] }} dpr={[1, 1.75]}>
         <Scene
           sim={sim}
+          rhythm={rhythm}
           profile={profile}
+          activity={showActivity ? config.activity || 'rest' : undefined}
           ghosts={ghosts}
           getMyDist={getMyDist}
           getGhostDist={getGhostDist}
@@ -392,6 +420,9 @@ export default function RunScreen({ profile, config, onFinish }) {
       {ready ? (
         <Hud
           sim={sim}
+          room={room}
+          showActivity={showActivity}
+          onToggleActivity={toggleActivity}
           getMyDist={getMyDist}
           getGhostDist={getGhostDist}
           ghosts={ghosts}
@@ -411,8 +442,9 @@ export default function RunScreen({ profile, config, onFinish }) {
           paused={paused}
           timeScale={timeScale}
           onTimeScale={changeScale}
+          onBoost={boost}
           onPause={togglePause}
-          onQuit={() => finish(false)}
+          onQuit={() => requestExit()}
           onBeat={hitBeat}
           onCheer={cheer}
           onCollect={onCollect}
@@ -425,4 +457,4 @@ export default function RunScreen({ profile, config, onFinish }) {
       )}
     </div>
   )
-}
+})

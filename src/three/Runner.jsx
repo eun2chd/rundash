@@ -4,6 +4,9 @@ import { useFrame } from '@react-three/fiber'
 import { Html } from '@react-three/drei'
 import { poseAt } from './track'
 import { CHEER_ICONS } from '../lib/icons'
+import { normalizeOutfit } from '../lib/outfit'
+import { Headwear, RunningShoe, RunningVest } from './RunnerGear'
+import ActivityBubble from '../components/ActivityBubble'
 
 const tmp = { pos: new THREE.Vector3(), tan: new THREE.Vector3() }
 const camPos = new THREE.Vector3()
@@ -18,7 +21,9 @@ export default function Runner({
   color = '#f08a5d',
   skin = '#f6d1b0',
   hair = null,
+  outfit: outfitInput,
   nickname,
+  activity,
   isMe = false,
   inPlace = false,
   hologram = false,
@@ -33,8 +38,11 @@ export default function Runner({
   const lLeg = useRef()
   const rLeg = useRef()
   const tag = useRef()
+  const activityTag = useRef()
   const head = useRef()
   const kneelT = useRef(0)
+  const boostFx = useRef()
+  const outfit = normalizeOutfit(outfitInput)
 
   useFrame(({ camera }, dt) => {
     const d = getDistance()
@@ -45,6 +53,7 @@ export default function Runner({
     }
     const act = getAction ? getAction() : null
     const tired = act?.tired || 0
+    if (boostFx.current) boostFx.current.visible = !!act?.boosting
     kneelT.current += ((act?.kneel ? 1 : 0) - kneelT.current) * (1 - Math.exp(-dt * 6))
     const k = kneelT.current
     const mix = (a, b) => a + (b - a) * k
@@ -68,6 +77,7 @@ export default function Runner({
       root.current.getWorldPosition(camPos)
       const dist = camPos.distanceTo(camera.position)
       tag.current.style.opacity = dist > 60 ? 0 : dist > 35 ? 0.5 : 1
+      if (activityTag.current) activityTag.current.style.visibility = dist > 60 ? 'hidden' : 'visible'
     }
   })
 
@@ -82,6 +92,10 @@ export default function Runner({
 
   return (
     <group ref={root}>
+      <group ref={boostFx} visible={false}>
+        {[-.24, 0, .24].map((x) => <mesh key={x} position={[x, .18, -.5]} rotation-x={Math.PI / 2}><capsuleGeometry args={[.035, .65, 4, 8]} /><meshBasicMaterial color="#f4d27a" transparent opacity={.8} /></mesh>)}
+        <mesh position-y={.12} rotation-x={-Math.PI / 2}><ringGeometry args={[.62, .7, 32]} /><meshBasicMaterial color="#e8c547" /></mesh>
+      </group>
       {/* 바닥 그림자 / 내 캐릭터 표시 링 */}
       <mesh rotation-x={-Math.PI / 2} position-y={0.1}>
         <circleGeometry args={[0.45, 24]} />
@@ -100,12 +114,11 @@ export default function Runner({
           <group key={i} ref={ref} position={[x, 0.55, 0]}>
             <mesh position-y={-0.22}>
               <capsuleGeometry args={[0.1, 0.24, 4, 10]} />
-              {M('#e4e7ea')}
+              {M(outfit.bottom === 'shorts' ? skin : outfit.bottomColor)}
             </mesh>
-            <mesh position={[0, -0.47, 0.05]} scale={[1, 0.6, 1.4]}>
-              <sphereGeometry args={[0.11, 12, 10]} />
-              {M('#3d3a36')}
-            </mesh>
+            {outfit.bottom !== 'tights' && <mesh position-y={-.07}><capsuleGeometry args={[.125, .13, 4, 12]} />{M(outfit.bottomColor)}</mesh>}
+            <mesh position-y={-.36}><cylinderGeometry args={[.102, .102, .11, 12]} />{M('#f4f1e8')}</mesh>
+            <RunningShoe style={outfit.shoes} color={outfit.shoesColor} material={M} />
           </group>
         ))}
 
@@ -116,20 +129,24 @@ export default function Runner({
         </mesh>
         <mesh position-y={0.62}>
           <torusGeometry args={[0.27, 0.035, 8, 24]} />
-          {M('#3d3a36')}
+          {M(outfit.bottomColor)}
         </mesh>
+        <mesh position={[0, .95, .272]}><boxGeometry args={[.09, .025, .012]} />{M('#f4f1e8')}</mesh>
+        <RunningVest outfit={outfit} material={M} />
 
         {/* 팔 */}
         {[[-0.34, lArm], [0.34, rArm]].map(([x, ref], i) => (
           <group key={i} ref={ref} position={[x, 1.06, 0]}>
             <mesh position-y={-0.18} rotation-z={x < 0 ? -0.12 : 0.12}>
               <capsuleGeometry args={[0.085, 0.26, 4, 10]} />
-              {M(color)}
+              {M(outfit.top === 'long' ? color : skin)}
             </mesh>
+            {outfit.top === 'tee' && <mesh position-y={-.065}><capsuleGeometry args={[.1, .1, 4, 12]} />{M(color)}</mesh>}
             <mesh position={[x < 0 ? -0.04 : 0.04, -0.4, 0]}>
               <sphereGeometry args={[0.09, 12, 10]} />
-              {M(skin)}
+              {M(outfit.gloves === 'full' ? outfit.glovesColor : skin)}
             </mesh>
+            {outfit.gloves !== 'none' && <mesh position={[x < 0 ? -.035 : .035, -.355, 0]}><capsuleGeometry args={[.095, .045, 4, 12]} />{M(outfit.glovesColor)}</mesh>}
           </group>
         ))}
 
@@ -145,11 +162,7 @@ export default function Runner({
               <meshStandardMaterial color={hair} roughness={0.9} />
             </mesh>
           )}
-          {/* 헤어밴드 */}
-          <mesh position-y={0.17} rotation-x={Math.PI / 2 - 0.25}>
-            <torusGeometry args={[0.39, 0.045, 8, 32]} />
-            {M(color)}
-          </mesh>
+          <Headwear outfit={outfit} material={M} />
           {!hologram && (
             <>
               {[-0.14, 0.14].map((x) => (
@@ -164,13 +177,17 @@ export default function Runner({
                   <meshBasicMaterial color="#f2a39a" transparent opacity={0.7} />
                 </mesh>
               ))}
+              <mesh position={[0, -.04, .415]} scale={[1, .75, 1]}><sphereGeometry args={[.045, 12, 10]} />{M(skin)}</mesh>
+              <mesh position={[0, -.14, .388]} rotation-z={Math.PI}><torusGeometry args={[.065, .012, 8, 16, Math.PI]} />{M('#6b4a2f')}</mesh>
+              {[-.4, .4].map((x) => <mesh key={x} position={[x, -.025, 0]} scale={[.7, 1, .7]}><sphereGeometry args={[.105, 14, 12]} />{M(skin)}</mesh>)}
             </>
           )}
         </group>
       </group>
 
+      {activity && <Html position={[0, 1.95, 0]} center distanceFactor={inPlace ? 4 : 9} zIndexRange={[19, 0]} style={{ pointerEvents: 'none' }}><div ref={activityTag} className={`runner-activity ${inPlace ? 'preview-activity' : ''}`}><ActivityBubble activity={activity} /></div></Html>}
       {(nickname || CheerIcon) && (
-        <Html position={[0, 2.35, 0]} center distanceFactor={9} zIndexRange={[20, 0]} style={{ pointerEvents: 'none' }}>
+        <Html position={[0, 2.35, 0]} center distanceFactor={inPlace ? 4 : 9} zIndexRange={[20, 0]} style={{ pointerEvents: 'none' }}>
           <div ref={tag} className="tag-wrap">
             {CheerIcon && (
               <div key={cheerKey} className="cheer-pop">

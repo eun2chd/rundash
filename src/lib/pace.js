@@ -19,8 +19,9 @@ export function fmtTime(sec) {
 }
 
 export function fmtPace(paceSec) {
-  const m = Math.floor(paceSec / 60)
-  const s = Math.round(paceSec % 60)
+  const rounded = Math.max(0, Math.round(paceSec))
+  const m = Math.floor(rounded / 60)
+  const s = rounded % 60
   return `${m}'${pad(s)}"`
 }
 

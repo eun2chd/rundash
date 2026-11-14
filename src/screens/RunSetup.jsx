@@ -1,63 +1,48 @@
-import { useMemo } from 'react'
+import { useState } from 'react'
 import CharacterPreview from '../components/CharacterPreview'
-import { MOCK_RUNNERS } from '../lib/mockData'
-import { BIOMES } from '../three/biomes'
-import { BIOME_ICONS } from '../lib/icons'
-import { STAMINA } from '../lib/stamina'
+import { ACTIVITIES, ACTIVITY_GROUPS, getActivity } from '../lib/activities'
+import ActivityBubble from '../components/ActivityBubble'
+import GrowthCard from '../components/GrowthCard'
+import { INTENSITIES, experienceFor, trainingFor } from '../lib/progression'
+import CoursePreview from '../components/CoursePreview'
 import { LuDroplet } from 'react-icons/lu'
 import { cadenceFor, fmtPace, fmtTime, speedKmh, totalRunSec, fmtKm } from '../lib/pace'
 
 const DISTANCES = [1, 3, 5, 10, 21.0975, 42.195]
 const DIST_LABEL = { 21.0975: '하프', 42.195: '풀' }
-const PRESETS = [
-  { label: '걷기', pace: 540 },
-  { label: '조깅', pace: 420 },
-  { label: '러닝', pace: 330 },
-  { label: '레이스', pace: 270 },
-]
 
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v))
 
-export default function RunSetup({ profile, config, onChange, onStart }) {
-  const { paceSec, distanceKm } = config
-  const setPace = (v) => onChange({ ...config, paceSec: clamp(Math.round(v), 180, 900) })
+export default function RunSetup({ profile, config, xp = 0, anonymous = false, starting = false, onChange, onStart }) {
+  const [activityGroup, setActivityGroup] = useState(() => getActivity(config.activity).group)
+  const { distanceKm } = config
+  const training = trainingFor(anonymous ? 0 : xp, config.intensity)
+  const { paceSec } = training
   const setDist = (v) => onChange({ ...config, distanceKm: clamp(Number(v) || 0.5, 0.5, 100) })
 
   const totalSec = totalRunSec(paceSec, distanceKm)
   const eta = new Date(Date.now() + totalSec * 1000).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
-  const segments = useMemo(
-    () => Array.from({ length: Math.ceil(distanceKm) }, (_, i) => ({ km: i, b: BIOMES[i % BIOMES.length] })).slice(0, 10),
-    [distanceKm]
-  )
 
   return (
     <div className="setup-screen">
       <div className="setup-grid">
         <section className="card preview-card">
           <div className="preview-canvas">
-            <CharacterPreview color={profile.color} skin={profile.skin} hair={profile.hair} nickname={profile.nickname} />
+            <CharacterPreview color={profile.color} skin={profile.skin} hair={profile.hair} outfit={profile.outfit} nickname={profile.nickname} activity={config.showActivity !== false ? config.activity || 'rest' : undefined} />
           </div>
         </section>
 
         <section className="card form-card">
           <div className="eyebrow">STEP 2</div>
           <h2>오늘의 러닝</h2>
+          <GrowthCard xp={xp} anonymous={anonymous} />
 
           <div className="field">
-            <span>목표 페이스 <em>(1km 당)</em></span>
-            <div className="pace-ctrl">
-              <button type="button" onClick={() => setPace(paceSec + 5)} aria-label="느리게">−</button>
-              <div className="pace-val">{fmtPace(paceSec)}<small>/km</small></div>
-              <button type="button" onClick={() => setPace(paceSec - 5)} aria-label="빠르게">+</button>
+            <span>러닝 강도</span>
+            <div className="intensity-options">
+              {INTENSITIES.map((effort) => <button type="button" key={effort.id} className={`intensity-option ${training.intensity === effort.id ? 'on' : ''}`} aria-pressed={training.intensity === effort.id} disabled={starting} onClick={() => onChange({ ...config, intensity: effort.id })}><strong>{effort.label}</strong><span>{fmtPace(trainingFor(anonymous ? 0 : xp, effort.id).paceSec)} /km</span><small>{effort.description}</small></button>)}
             </div>
-            <input type="range" min={180} max={900} step={5} value={1080 - paceSec} onChange={(e) => setPace(1080 - Number(e.target.value))} />
-            <div className="presets">
-              {PRESETS.map((p) => (
-                <button key={p.label} type="button" className={`chip ${paceSec === p.pace ? 'on' : ''}`} onClick={() => setPace(p.pace)}>
-                  {p.label} {fmtPace(p.pace)}
-                </button>
-              ))}
-            </div>
+            <small>Lv.{training.level} 기준 페이스예요. 레벨이 오르면 같은 강도에서도 빨라져요.</small>
           </div>
 
           <div className="field">
@@ -86,32 +71,28 @@ export default function RunSetup({ profile, config, onChange, onStart }) {
               <div><span>도착 예정</span><b>{eta}</b></div>
             </div>
             <p className="calc-note">
-              <LuDroplet /> 1km마다 보급소가 있어요. 물·탄수화물을 안 챙기면 점점 느려지고, 체력이 바닥나면 {STAMINA.recoverySec}초 쉬어야 해요.
+              <LuDroplet /> 1km마다 보급소가 있어요. 체력이 바닥나면 {training.recoverySec}초 회복해요. 실제 시간은 보급·휴식·부스터에 따라 달라져요.
             </p>
           </div>
 
-          <button className="btn primary block big" onClick={onStart}>달리기 시작</button>
+          <p className="xp-estimate">{anonymous ? '익명 체험은 경험치가 저장되지 않아요.' : `완주 예상 +${experienceFor({ distanceKm, completed: true }).total} XP · 중간에 멈춰도 달린 만큼 성장해요.`}</p>
+          <button className="btn primary block big" disabled={starting} onClick={onStart}>{starting ? '러닝 준비 중…' : '달리기 시작'}</button>
         </section>
 
         <section className="card side-card">
-          <h3>코스 구간 <span className="badge">1km마다 풍경이 바뀌어요</span></h3>
-          <ol className="segments">
-            {segments.map(({ km, b }) => (
-              <li key={km}><span className="seg-km">{km}~{Math.min(km + 1, distanceKm).toFixed(km + 1 > distanceKm ? 1 : 0)}km</span><span className="seg-name">{(() => { const I = BIOME_ICONS[b.key]; return <I /> })()}{b.name}</span></li>
-            ))}
-            {Math.ceil(distanceKm) > 10 && <li className="muted">… 이후 순환</li>}
-          </ol>
+          <CoursePreview distanceKm={distanceKm} />
 
-          <h3>같이 달리는 러너 <span className="badge">목업</span></h3>
-          <ul className="runners">
-            {MOCK_RUNNERS.map((r) => (
-              <li key={r.id}>
-                <span className="dot" style={{ background: r.color }} />
-                <span className="rn">{r.nickname}</span>
-                <span className="rp">{fmtPace(r.paceSec)}/km</span>
-              </li>
-            ))}
-          </ul>
+          <section className="activity-picker" aria-labelledby="activity-title">
+            <div className="eyebrow">WHILE MY RUNNER RUNS</div>
+            <h3 id="activity-title">현재 무엇을 하고 있나요?</h3>
+            <p>러너가 달리는 동안, 나의 상태를 띄워보세요.</p>
+            <button type="button" className="chip activity-visibility" aria-pressed={config.showActivity !== false} onClick={() => onChange({ ...config, showActivity: config.showActivity === false })}>{config.showActivity === false ? '구름 말풍선 보이기' : '구름 말풍선 숨기기'}</button>
+            <div className="activity-groups" aria-label="활동 카테고리">{ACTIVITY_GROUPS.map((group) => <button type="button" key={group.id} className={`activity-group ${activityGroup === group.id ? 'on' : ''}`} aria-pressed={activityGroup === group.id} onClick={() => setActivityGroup(group.id)}>{group.label}</button>)}</div>
+            <div className="activity-options">
+              {ACTIVITIES.filter((activity) => activity.group === activityGroup).map((activity) => <button type="button" key={activity.id} className={`activity-option ${(config.activity || 'rest') === activity.id ? 'on' : ''}`} aria-pressed={(config.activity || 'rest') === activity.id} onClick={() => onChange({ ...config, activity: activity.id })}>{activity.label}<span aria-hidden="true">{(config.activity || 'rest') === activity.id ? '✓' : '+'}</span></button>)}
+            </div>
+            {config.showActivity !== false && <div className="activity-sample"><ActivityBubble activity={config.activity || 'rest'} /></div>}
+          </section>
         </section>
       </div>
     </div>

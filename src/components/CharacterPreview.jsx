@@ -1,10 +1,26 @@
 import { useEffect, useRef } from 'react'
-import { Canvas, useFrame } from '@react-three/fiber'
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import Runner from '../three/Runner'
 
 const easeOutBack = (x) => {
   const c1 = 1.70158, c3 = c1 + 1
   return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2)
+}
+
+function PreviewFraming({ activity }) {
+  const { camera, size } = useThree()
+  useEffect(() => {
+    const aspect = size.width / Math.max(1, size.height)
+    const tangent = Math.tan(camera.fov * Math.PI / 360)
+    const height = activity ? 3.5 : 3.05
+    const distance = Math.max(height / (2 * tangent), (activity ? 2.3 : 1.8) / (2 * tangent * aspect))
+    const center = activity ? 1.4 : 1.25
+    const horizontal = activity ? .2 : 0
+    camera.position.set(horizontal, center + .15, distance)
+    camera.lookAt(horizontal, center, 0)
+    camera.updateProjectionMatrix()
+  }, [camera, size.width, size.height, activity])
+  return null
 }
 
 function Turntable({ popKey, children }) {
@@ -39,7 +55,7 @@ function Burst({ popKey, color }) {
   )
 }
 
-export default function CharacterPreview({ color, skin, hair, nickname, revealed = true, popKey = 0, running = true, bg = '#2a2b24' }) {
+export default function CharacterPreview({ color, skin, hair, outfit, nickname, activity, revealed = true, popKey = 0, running = true, bg = '#2a2b24' }) {
   const getDistance = () => (running ? (performance.now() / 1000) * 1.6 : 0)
   return (
     <Canvas
@@ -48,6 +64,7 @@ export default function CharacterPreview({ color, skin, hair, nickname, revealed
       onCreated={({ camera }) => camera.lookAt(0, 1.05, 0)}
     >
       <color attach="background" args={[bg]} />
+      <PreviewFraming activity={activity} />
       <hemisphereLight args={['#fff4e0', '#4a4a3a', 1.1]} />
       <directionalLight position={[3, 5, 4]} intensity={1.6} />
       <pointLight position={[-2.5, 2, -1.5]} color={color} intensity={6} distance={7} />
@@ -58,6 +75,8 @@ export default function CharacterPreview({ color, skin, hair, nickname, revealed
           color={color}
           skin={skin}
           hair={hair}
+          outfit={outfit}
+          activity={activity}
           hologram={!revealed}
           nickname={revealed ? nickname : null}
           isMe

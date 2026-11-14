@@ -6,3 +6,4 @@ dist
 !.env.example
 db
 .vercel
+.tmp/

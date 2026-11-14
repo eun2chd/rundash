@@ -1,4 +1,4 @@
-﻿begin;
+begin;
 create table public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   nickname text not null check (nickname ~ '^[가-힣a-zA-Z0-9_]{2,10}$' and lower(nickname) not in ('admin', '관리자', '운영자')),
