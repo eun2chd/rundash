@@ -18,7 +18,7 @@ const PRESETS = [
 
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v))
 
-export default function RunSetup({ profile, config, onChange, onStart, onEditCharacter, onLogout }) {
+export default function RunSetup({ profile, config, onChange, onStart }) {
   const { paceSec, distanceKm } = config
   const setPace = (v) => onChange({ ...config, paceSec: clamp(Math.round(v), 180, 900) })
   const setDist = (v) => onChange({ ...config, distanceKm: clamp(Number(v) || 0.5, 0.5, 100) })
@@ -32,17 +32,6 @@ export default function RunSetup({ profile, config, onChange, onStart, onEditCha
 
   return (
     <div className="setup-screen">
-      <header className="topbar">
-        <div className="brand-mark small">런 대 시</div>
-        <div className="topbar-right">
-          <button className="chip" onClick={onEditCharacter}>
-            <span className="dot" style={{ background: profile.color }} />
-            {profile.nickname} · 캐릭터 수정
-          </button>
-          <button className="link" onClick={onLogout}>로그아웃</button>
-        </div>
-      </header>
-
       <div className="setup-grid">
         <section className="card preview-card">
           <div className="preview-canvas">

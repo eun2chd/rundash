@@ -9,7 +9,7 @@ const HAIRS = [null, '#2b2420', '#6b4a2f', '#c9a063', '#8f8f8f']
 const NICK_RE = /^[가-힣a-zA-Z0-9_]{2,10}$/
 
 export default function CharacterCreate({ user, initial, onDone }) {
-  const [nickname, setNickname] = useState(initial?.nickname || '')
+  const [nickname, setNickname] = useState(initial?.nickname || user.user_metadata?.nickname || '')
   const [color, setColor] = useState(initial?.color || SHIRTS[0])
   const [skin, setSkin] = useState(initial?.skin || SKINS[1])
   const [hair, setHair] = useState(initial ? initial.hair ?? null : null)
@@ -26,6 +26,7 @@ export default function CharacterCreate({ user, initial, onDone }) {
     if (!valid) return setErr('2~10자, 한글/영문/숫자/_ 만 쓸 수 있어요.')
     setErr('')
     setStatus('checking')
+    try {
     if (await api.isNicknameTaken(nickname, user.id)) {
       setStatus('idle')
       return setErr('이미 사용 중인 닉네임이에요.')
@@ -35,6 +36,10 @@ export default function CharacterCreate({ user, initial, onDone }) {
     setPopKey((k) => k + 1)
     setSaved(p)
     setStatus('done')
+    } catch (error) {
+      setErr(error.message || '저장하지 못했어요. 다시 시도해 주세요.')
+      setStatus('idle')
+    }
   }
 
   return (

@@ -1,4 +1,5 @@
 import { LuFootprints } from 'react-icons/lu'
+import Logo from './Logo'
 
 export default function Loading({ text = '러닝 코스를 준비하고 있어요.', sub, progress }) {
   return (
@@ -6,7 +7,7 @@ export default function Loading({ text = '러닝 코스를 준비하고 있어�
       <div className="loading-icon">
         <LuFootprints size={30} />
       </div>
-      <h1 className="loading-title">런 대 시</h1>
+      <h1 className="loading-title"><Logo /></h1>
       <p className="loading-text">{text}</p>
       <div className="loading-bar"><div style={{ width: progress != null ? `${progress}%` : undefined }} className={progress == null ? 'indeterminate' : ''} /></div>
       {sub && <p className="loading-sub">{sub}</p>}

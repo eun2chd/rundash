@@ -28,7 +28,7 @@ export default function Result({ result, profile, onAgain }) {
           <div><span>보낸 응원</span><b>{r.cheersSent}</b></div>
           <div><span>받은 응원</span><b>{r.cheersGot}</b></div>
         </div>
-        <p className="note">기록은 지금은 브라우저에 저장돼요. (추후 Supabase runs 테이블)</p>
+        <p className="note">러닝 기록이 내 계정에 저장됐어요.</p>
         <button className="btn primary block" onClick={onAgain}>다시 달리기</button>
       </div>
     </div>

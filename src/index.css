@@ -46,7 +46,12 @@ input { font: inherit; color: inherit; }
 .btn.primary:hover:not(:disabled) { background: var(--olive-d); }
 .btn.ghost { border: 1px solid var(--line); background: #fff; margin-bottom: 8px; }
 .btn.ghost.light { background: transparent; color: var(--cream); border-color: rgba(255,248,230,.35); margin: 0; }
-.btn.kakao { background: #fee500; color: #191600; }
+.brand-mark { display: inline-flex; align-items: baseline; gap: .22em; font-size: 32px; font-weight: 800; letter-spacing: -.055em; line-height: 1.1; }
+.brand-mark.small { font-size: 23px; }
+.brand-dash { font-style: italic; }
+.brand-streak { color: var(--accent); margin-left: .08em; font-size: 1.3em; }
+.app-error { position: fixed; top: 12px; left: 50%; transform: translateX(-50%); width: min(90%, 680px); padding: 16px; background: var(--card); border: 1px solid var(--accent); border-radius: 12px; z-index: 100; font-size: 13px; }
+.app-error button { margin-left: 12px; }
 
 .field { display: block; margin-bottom: 18px; }
 .field > span { display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px; }
@@ -321,4 +326,36 @@ input[type=range] { width: 100%; margin: 14px 0 10px; accent-color: var(--olive)
   .hud-tc { top: 60px; }
   .hud-tl .info-pill { display: none; }
   .supply-btn { min-width: 0; }
+}
+
+.signup-back { display: inline-block; margin-bottom: 26px; }
+.signup-preview { display: flex; align-items: center; gap: 16px; margin-top: 30px; padding: 20px; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); max-width: 360px; }
+.signup-avatar { display: grid; place-items: center; width: 56px; height: 56px; flex: none; border-radius: 18px; background: var(--olive); color: var(--cream); font-weight: 800; font-size: 24px; }
+.signup-preview strong { display: block; margin-bottom: 4px; font-size: 20px; overflow-wrap: anywhere; }
+.signup-preview .muted { font-size: 12px; }
+.signup-preview .eyebrow { display: block; }
+.signup-success > p { font-size: 14px; line-height: 1.7; overflow-wrap: anywhere; }
+.signup-success .btn { margin-top: 24px; }
+
+:root { --header-height: 72px; }
+.site-header { position: sticky; top: 0; height: var(--header-height); z-index: 80; background: rgba(250,248,243,.96); border-bottom: 1px solid var(--line); backdrop-filter: blur(12px); }
+.site-header-inner { max-width: 1180px; height: 100%; margin: 0 auto; padding: 0 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.header-logo { display: inline-flex; align-items: center; flex: none; }
+.header-nav { display: flex; align-items: center; gap: 8px; }
+.header-link { min-height: 40px; padding: 0 14px; border-radius: 10px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.header-link:hover:not(:disabled), .header-link.active { background: #efeadf; color: var(--olive-d); }
+.header-link:disabled, .header-logo:disabled { cursor: default; opacity: .5; }
+.header-user { font-size: 12px; color: var(--muted); border-left: 1px solid var(--line); padding-left: 14px; margin-left: 4px; }
+.header-link:focus-visible, .header-logo:focus-visible { outline: 2px solid var(--olive); outline-offset: 3px; }
+.app-content { min-height: calc(100dvh - var(--header-height)); }
+.app-content > .login-screen, .app-content > .create-screen, .app-content > .result-screen { min-height: calc(100dvh - var(--header-height)); }
+.app-content .run-screen, .app-content .loading-screen { top: var(--header-height); }
+.app-error { top: calc(var(--header-height) + 12px); }
+@media (max-width: 600px) {
+  :root { --header-height: 64px; }
+  .site-header-inner { padding: 0 14px; gap: 8px; }
+  .header-logo .brand-mark.small { font-size: 21px; }
+  .header-nav { gap: 2px; }
+  .header-link { padding: 0 9px; font-size: 12px; }
+  .header-user { display: none; }
 }
