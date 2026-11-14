@@ -2,7 +2,7 @@ import { useEffect, useId, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { LuArrowRight, LuHelpCircle } from 'react-icons/lu'
 
-export default function ConfirmDialog({ title, description, confirmLabel = '이동하기', cancelLabel = '머무르기', onAnswer, onDismiss, focusConfirm = false, eyebrow = 'JUST A MOMENT', resumeShortcut = false }) {
+export default function ConfirmDialog({ title, description, confirmLabel = '이동하기', cancelLabel = '머무르기', onAnswer, onDismiss, focusConfirm = false, eyebrow = 'JUST A MOMENT', resumeShortcut = false, confirmDisabled = false }) {
   const dialog = useRef(null)
   const cancel = useRef(null)
   const proceed = useRef(null)
@@ -28,7 +28,7 @@ export default function ConfirmDialog({ title, description, confirmLabel = '이�
     <p id={descriptionId}>{description}</p>
     <div className="confirm-actions">
       <button type="button" ref={cancel} className="btn ghost" onClick={() => onAnswer(false)}>{cancelLabel}</button>
-      <button type="button" ref={proceed} className="btn primary" onClick={() => onAnswer(true)}>{confirmLabel}<LuArrowRight aria-hidden="true" /></button>
+      <button type="button" ref={proceed} disabled={confirmDisabled} className="btn primary" onClick={() => onAnswer(true)}>{confirmLabel}<LuArrowRight aria-hidden="true" /></button>
     </div>
   </dialog>, document.body)
 }

@@ -10,7 +10,7 @@ export function activateBooster(s) {
   return true
 }
 
-export function advanceSimulation(s, dt) {
+export function advanceSimulation(s, dt, weatherMultiplier = 1) {
   if (s.paused || s.finished) return
   const step = Math.min(Math.max(0, dt), .1) * s.timeScale
   s.elapsed += step
@@ -31,7 +31,7 @@ export function advanceSimulation(s, dt) {
   s.speedMult = multiplier * (boostSeconds > 0 ? 1 + boostBonus : 1)
   const dd = Math.min(s.totalM - s.dist, s.speed * multiplier * (step + boostSeconds * boostBonus))
   s.dist += dd
-  s.stamina = Math.max(0, s.stamina - dd / 1000 * s.drain)
+  s.stamina = Math.max(0, s.stamina - dd / 1000 * s.drain * weatherMultiplier)
   if (s.dist >= s.totalM) s.finished = true
   else if (s.stamina <= 0) {
     s.resting = true; s.restLeft = s.recoverySec; s.exhaust++; s.boostLeft = 0

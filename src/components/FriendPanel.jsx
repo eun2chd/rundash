@@ -1,10 +1,12 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { LuUsers, LuSearch, LuMapPin } from 'react-icons/lu'
 import { api } from '../lib/api'
+import { fmtPace, fmtKm } from '../lib/pace'
 import { socialErrorMessage } from '../lib/socialErrors'
 
-export default function FriendPanel({ social, onLocate, confirmAction }) {
+export default function FriendPanel({ social, onLocate, confirmAction, openRequest = 0, onAcceptInvite }) {
   const [open, setOpen] = useState(false)
+  useEffect(() => { if (openRequest) setOpen(true) }, [openRequest])
   const [query, setQuery] = useState('')
   const [results, setResults] = useState([])
   const [searched, setSearched] = useState(false)
@@ -35,7 +37,7 @@ export default function FriendPanel({ social, onLocate, confirmAction }) {
       <header className="friend-panel-heading"><h2>친구와 같이 달리자</h2><p>닉네임으로 친구를 찾아 함께 달려요.</p></header>
       {!social.enabled ? <p>정식 계정으로 러닝 중일 때 사용할 수 있어요.</p> : <>
         <div className="friend-preferences"><label><input type="checkbox" checked={social.publicLocation} onChange={e => social.setPublicLocation(e.target.checked)} /> 내 코스 위치 공개</label>
-        <label><input type="checkbox" checked={social.allowInvites} onChange={e => social.setAllowInvites(e.target.checked)} /> 동행 초대 받기</label></div>
+        <label><input type="checkbox" checked={social.allowInvites} onChange={e => social.setAllowInvites(e.target.checked)} /> 동행 초대 받기</label><label><input type="checkbox" checked={social.shareActivity} onChange={e => social.setShareActivity(e.target.checked)} /> 내 활동 구름 공개</label></div>
         <p className="note">위치를 공개하면 다른 러너가 맵에서 나를 찾을 수 있어요. 비공개로 바꿔도 수락한 동행 상대에게는 공유돼요.</p>
         {social.error && <p className="friend-notice" role="status">{social.error}</p>}
         <form className="friend-search" onSubmit={e => { e.preventDefault(); action(async () => { setResults(await api.searchFriends(query)); setSearched(true) }) }}>
@@ -57,9 +59,11 @@ export default function FriendPanel({ social, onLocate, confirmAction }) {
         })}
         {social.invites.map(invite => <article className="friend-row" key={invite.id}>
           <strong>{invite.nickname}님{invite.incoming ? '의 동행 초대' : '에게 보낸 초대'}</strong>
+          {invite.offered_pace && <div className="invite-conditions"><span>기준 페이스 <b>{fmtPace(invite.offered_pace)}/km</b></span><span>목표 거리 <b>{fmtKm(Number(invite.offered_distance))}km</b></span></div>}
+          {!invite.offered_pace ? <small role="status">초대 조건을 확인할 수 없어요. 다시 초대해 주세요.</small> : <small>수락하면 현재 기록을 저장하고 위 조건으로 새 러닝을 시작해요.</small>}
           <small>나를 포함해 최대 4명, 앞 2명·뒤 2명으로 달려요. 60초 안에 수락해 주세요. 거리·체력·경험치는 각자 유지해요.</small>
           <div className="friend-actions">{invite.incoming ? <>
-            <button className="btn primary" disabled={busy} onClick={() => action(() => api.respondInvite(invite.id, 'accept'), '동행을 시작했어요.')}>수락</button>
+            <button className="btn primary" disabled={busy || !invite.offered_pace} onClick={() => action(() => onAcceptInvite(invite.id), '동행을 시작했어요.')}>수락</button>
             <button className="btn ghost" disabled={busy} onClick={() => action(() => api.respondInvite(invite.id, 'decline'))}>거절</button>
           </> : <button className="btn ghost" disabled={busy} onClick={() => action(() => api.respondInvite(invite.id, 'cancel'))}>초대 취소</button>}</div>
         </article>)}

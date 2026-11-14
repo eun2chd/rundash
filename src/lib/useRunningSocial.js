@@ -8,13 +8,14 @@ export function peerDistance(peer, now = Date.now()) {
 
 export default function useRunningSocial({ profile, config, sim, ready }) {
   const [data, setData] = useState({ peers: [], invites: [], pair: null })
-  const [publicLocation, setPublicLocation] = useState(true)
+  const [publicLocation, setPublicLocation] = useState(config.resume?.publicLocation ?? true)
   const [allowInvites, setAllowInvites] = useState(true)
+  const [shareActivity, setShareActivity] = useState(config.resume?.shareActivity ?? true)
   const [error, setError] = useState('')
   const [focusId, setFocusId] = useState(null)
   const [connected, setConnected] = useState(false)
   const options = useRef({ publicLocation, allowInvites })
-  options.current = { publicLocation, allowInvites, focusId }
+  options.current = { publicLocation, allowInvites, focusId, shareActivity, activity: config.activity || 'rest' }
   const refreshRef = useRef(() => {})
   const enabled = ready && !config.anonymous
   useEffect(() => {
@@ -46,10 +47,10 @@ export default function useRunningSocial({ profile, config, sim, ready }) {
     return () => {
       alive = false; clearInterval(timer); window.removeEventListener('focus', refresh)
       refreshRef.current = () => {}
-      api.endPair().catch(() => {})
+      api.endPair(config.id).catch(() => {})
     }
   }, [enabled, config.id, sim])
-  useEffect(() => { refreshRef.current() }, [publicLocation, allowInvites, focusId])
+  useEffect(() => { refreshRef.current() }, [publicLocation, allowInvites, focusId, shareActivity])
   const refresh = useCallback(() => refreshRef.current(), [])
-  return { ...data, enabled, connected, error, publicLocation, allowInvites, setPublicLocation, setAllowInvites, setFocusId, refresh }
+  return { ...data, enabled, connected, error, publicLocation, allowInvites, setPublicLocation, setAllowInvites, shareActivity, setShareActivity, setFocusId, refresh }
 }

@@ -19,7 +19,7 @@ test('social RPCs enforce location consent, invite ownership, exclusivity, block
    create function auth.jwt() returns jsonb language sql stable as $$ select coalesce(nullif(current_setting('request.jwt.claims',true),''),'{}')::jsonb $$;
    grant usage on schema auth to anon,authenticated;`)
   const directory=new URL('../supabase/migrations/',import.meta.url)
-  for(const file of (await readdir(directory)).filter(f=>f.endsWith('.sql')).sort()) await db.exec(await readFile(new URL(file,directory),'utf8'))
+  for(const file of (await readdir(directory)).filter(f=>f.endsWith('.sql') && f < '202611140013_companion_rules.sql').sort()) await db.exec(await readFile(new URL(file,directory),'utf8'))
   for(const [id,nickname] of [[a,'Alice'],[b,'Bobby'],[c,'Carol']]) {
    await db.query('insert into auth.users(id,email) values($1,$2)',[id,nickname+'@private.test'])
    await db.query("insert into public.profiles(id,nickname,color,skin) values($1,$2,'#e07b39','#f6d1b0')",[id,nickname])

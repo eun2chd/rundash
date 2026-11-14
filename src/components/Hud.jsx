@@ -19,12 +19,14 @@ import FriendPanel from './FriendPanel'
 import RoomPresence from './RoomPresence'
 import ConfirmDialog from './ConfirmDialog'
 import GroupRoster from './GroupRoster'
+import WeatherDashboard from './WeatherDashboard'
+import { weatherAt } from '../lib/weather'
 
 export default function Hud({
   sim, getMyDist, getGhostDist, ghosts, nearestGhost, profile, config, totalM, biome,
   stats, items, stations, closedStations, rhythm, judge, cadence, toasts, paused, timeScale,
   onTimeScale, onPause, onQuit, onBeat, onCheer, onCollect, onCollectNearest, onBoost,
-  room, showActivity, onToggleActivity, realPeers = [], myVisualPose, social, confirmAction, checkpointError, locating, onLocateFriend, onReturnToRunner, showPauseDialog = true,
+  room, showActivity, onToggleActivity, realPeers = [], myVisualPose, social, confirmAction, checkpointError, locating, onLocateFriend, onReturnToRunner, showPauseDialog = true, friendPanelRequest, canPause = true, onAcceptInvite,
 }) {
   const [t, setT] = useState(() => snapshot())
   const [showMap, setShowMap] = useState(false)
@@ -34,6 +36,8 @@ export default function Hud({
     const s = sim.current
     return {
       elapsed: s.elapsed,
+      weather: weatherAt(s.weatherTimeMs),
+      weatherTimeMs: s.weatherTimeMs,
       dist: s.dist,
       stamina: s.stamina,
       mult: s.speedMult,
@@ -87,7 +91,7 @@ export default function Hud({
           <button className="icon-btn" title="종료" onClick={onQuit}><LuLogOut /></button>
           <button className={`icon-btn ${showMap ? 'on' : ''}`} title="미니맵" onClick={() => setShowMap((v) => !v)}><LuMap /></button>
           <button className={`icon-btn ${showActivity ? 'on' : ''}`} title={showActivity ? '구름 말풍선 숨기기' : '구름 말풍선 보이기'} aria-label={showActivity ? '구름 말풍선 숨기기' : '구름 말풍선 보이기'} aria-pressed={showActivity} onClick={onToggleActivity}>{showActivity ? <LuCloud /> : <LuCloudOff />}</button>
-          <FriendPanel social={social} onLocate={id => { setShowMap(true); onLocateFriend(id) }} confirmAction={confirmAction} />
+          <FriendPanel onAcceptInvite={onAcceptInvite} openRequest={friendPanelRequest} social={social} onLocate={id => { setShowMap(true); onLocateFriend(id) }} confirmAction={confirmAction} />
           <span className="pill-title">런대시</span>
           <span className="pill-sub">코스 01</span>
         </div>
@@ -170,6 +174,7 @@ export default function Hud({
       {/* 우상단: 접속 인원과 채팅방 */}
       <div className="hud-tr">
         <RunningMusic />
+        <WeatherDashboard weather={t.weather} timestamp={t.weatherTimeMs} />
         <RoomPresence room={room} />
         <button type="button" className="chat-toggle" aria-expanded={showChat} onClick={() => setShowChat((visible) => !visible)}><LuMessageCircle /> {showChat ? '채팅 숨기기' : '채팅 보이기'}</button>
         {showChat && <RunnerChat room={room} onHide={() => setShowChat(false)} />}
@@ -189,13 +194,13 @@ export default function Hud({
           <button className={`dock-btn ${activeItems.length || medalNear ? 'glow' : ''}`} onClick={onCollectNearest}>
             <LuHand /><span>{activeItems.length ? '보급 챙기기' : '줍기'}</span><kbd>E</kbd>
           </button>
-          <button className="dock-btn" onClick={onPause}>{paused ? <LuPlay /> : <LuPause />}<span>{paused ? '계속' : '일시정지'}</span><kbd>P</kbd></button>
+          <button className="dock-btn" disabled={!canPause} title={!canPause ? '방장만 일시정지할 수 있어요' : undefined} onClick={onPause}>{paused ? <LuPlay /> : <LuPause />}<span>{!canPause ? '방장만 정지' : paused ? '계속' : '일시정지'}</span><kbd>P</kbd></button>
         </div>
       </div>
 
-      <div className="toasts">
+      <div className="toasts" aria-live="polite" aria-atomic="false">
         {toasts.map((x) => (
-          <div key={x.id} className={`toast ${x.kind}`}>{x.icon && <x.icon />}{x.text}</div>
+          <div key={x.id} className={`toast ${x.kind}`}>{x.icon && <x.icon />}{x.text}{x.action && <button type="button" className="toast-action" onClick={x.action.onClick}>{x.action.label}</button>}</div>
         ))}
       </div>
 
@@ -209,7 +214,7 @@ export default function Hud({
         </div>
       )}
 
-      {paused && showPauseDialog && <ConfirmDialog title="일시정지" description="캐릭터가 제자리에서 기다리고 있어요." cancelLabel="여기서 종료" confirmLabel="계속 달리기" eyebrow="잠시 쉬어가기" focusConfirm resumeShortcut onDismiss={onPause} onAnswer={resume => resume ? onPause() : onQuit()} />}
+      {paused && showPauseDialog && <ConfirmDialog title={canPause ? '일시정지' : '방장이 일시정지했어요'} description={canPause ? '캐릭터가 제자리에서 기다리고 있어요.' : '방장이 다시 시작하면 함께 달려요.'} cancelLabel="여기서 종료" confirmLabel={canPause ? '계속 달리기' : '방장의 재개를 기다리는 중'} confirmDisabled={!canPause} eyebrow="잠시 쉬어가기" focusConfirm={canPause} resumeShortcut={canPause} onDismiss={canPause ? onPause : () => {}} onAnswer={resume => resume ? onPause() : onQuit()} />}
     </div>
   )
 }

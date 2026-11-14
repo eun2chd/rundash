@@ -5,25 +5,29 @@ import { buildRibbon, PROP_SPOTS } from './track'
 
 const DS = THREE.DoubleSide
 
-export default function World({ biome }) {
+export default function World({ biome, weather }) {
   const shoulder = useMemo(() => buildRibbon(-4.4, 4.4, 600, 0.03), [])
   const road = useMemo(() => buildRibbon(-3, 3, 600, 0.06), [])
   const lineL = useMemo(() => buildRibbon(2.55, 2.75, 600, 0.09), [])
   const lineR = useMemo(() => buildRibbon(-2.75, -2.55, 600, 0.09), [])
   const dark = !!biome.dark
+  const wet = !!weather?.precipitation
+  const heavy = weather?.intensity === 'heavy'
+  const sky = wet ? (dark ? '#252d40' : weather.precipitation === 'snow' ? '#cad8e1' : '#7d94a8') : weather?.tone === 'heat' && !dark ? '#e8cda6' : biome.sky
+  const ground = weather?.precipitation === 'snow' ? (dark ? '#909cab' : '#dbe4e7') : biome.ground
 
   return (
     <>
-      <color attach="background" args={[biome.sky]} />
-      <fog attach="fog" args={[biome.sky, 60, dark ? 170 : 260]} />
-      <hemisphereLight args={[biome.sky, biome.ground, dark ? 0.5 : 1.0]} />
-      <directionalLight position={[60, 90, 40]} intensity={dark ? 0.35 : 1.5} color={dark ? '#a9b8ff' : '#fff1dc'} />
+      <color attach="background" args={[sky]} />
+      <fog attach="fog" args={[sky, heavy ? 25 : 60, heavy ? 110 : dark ? 170 : 260]} />
+      <hemisphereLight args={[sky, ground, dark ? 0.5 : wet ? .7 : 1.0]} />
+      <directionalLight position={[60, 90, 40]} intensity={dark ? 0.35 : wet ? .7 : 1.5} color={dark ? '#a9b8ff' : '#fff1dc'} />
       <ambientLight intensity={dark ? 0.25 : 0.3} />
-      {dark ? <Stars radius={260} depth={60} count={2500} factor={6} fade /> : <Clouds />}
+      {dark && !wet ? <Stars radius={260} depth={60} count={2500} factor={6} fade /> : <Clouds color={wet ? (dark ? '#414b60' : '#d9e0e4') : '#ffffff'} />}
 
       <mesh rotation-x={-Math.PI / 2}>
         <planeGeometry args={[1000, 1000]} />
-        <meshStandardMaterial color={biome.ground} />
+        <meshStandardMaterial color={ground} />
       </mesh>
       <mesh geometry={shoulder}><meshStandardMaterial color={biome.shoulder} side={DS} /></mesh>
       <mesh geometry={road}><meshStandardMaterial color={biome.road} side={DS} /></mesh>
@@ -38,7 +42,7 @@ export default function World({ biome }) {
   )
 }
 
-function Clouds() {
+function Clouds({ color = '#ffffff' }) {
   const clouds = useMemo(
     () =>
       Array.from({ length: 14 }, (_, i) => ({
@@ -54,7 +58,7 @@ function Clouds() {
       {[[0, 0, 0, 1.6], [1.7, -0.3, 0.3, 1.2], [-1.6, -0.4, -0.2, 1.1], [0.5, 0.6, 0, 1.1]].map(([x, y, z, r], j) => (
         <mesh key={j} position={[x, y, z]}>
           <icosahedronGeometry args={[r, 1]} />
-          <meshStandardMaterial color="#ffffff" flatShading />
+          <meshStandardMaterial color={color} flatShading />
         </mesh>
       ))}
     </group>

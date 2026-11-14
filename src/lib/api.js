@@ -5,11 +5,23 @@ const profileFromRow = (p) => p && ({ ...p, userId: p.id, updatedAt: p.updated_a
 const runFromRow = (r) => ({ ...r.details, id: r.id, userId: r.user_id, createdAt: r.created_at })
 export const api = {
   async locateFriend(id) { return unwrap(await getSupabase().rpc('locate_running_friend', { p_target: id })) },
-  async socialTick({ runId, distance, speed, paused, publicLocation, allowInvites }) { return unwrap(await getSupabase().rpc('running_social_tick', { p_run_id: runId, p_distance: distance, p_speed: speed, p_paused: paused, p_public: publicLocation, p_invites: allowInvites })) },
+  async socialTick({ runId, distance, speed, paused, publicLocation, allowInvites, activity = 'rest', shareActivity = true }) {
+    const args = { p_run_id: runId, p_distance: distance, p_speed: speed, p_paused: paused, p_public: publicLocation, p_invites: allowInvites }
+    const result = await getSupabase().rpc('running_social_tick', { ...args, p_activity: activity, p_share_activity: shareActivity })
+    if (result.error?.code === 'PGRST202') return unwrap(await getSupabase().rpc('running_social_tick', args))
+    return unwrap(result)
+  },
   async searchFriends(query) { return unwrap(await getSupabase().rpc('search_running_friends', { p_query: query.trim() })) },
   async inviteFriend(id) { return unwrap(await getSupabase().rpc('invite_running_friend', { p_target: id })) },
   async respondInvite(id, action) { return unwrap(await getSupabase().rpc('respond_running_invite', { p_id: id, p_action: action })) },
-  async endPair() { return unwrap(await getSupabase().rpc('end_running_pair')) },
+  async endPair(runId) { return unwrap(await getSupabase().rpc('end_running_pair', runId ? { p_run_id: runId } : {})) },
+  async pauseGroup(paused) { return unwrap(await getSupabase().rpc('pause_running_group', { p_paused: paused })) },
+  async acceptInvite(id, details, newRunId) {
+    const args = { p_id: id, p_details: details, p_new_run_id: newRunId }
+    let result = await getSupabase().rpc('accept_running_invite', args)
+    if (result.error && !result.error.code) result = await getSupabase().rpc('accept_running_invite', args)
+    return unwrap(result)
+  },
   async blockFriend(id, block) { return unwrap(await getSupabase().rpc('block_running_friend', { p_target: id, p_block: block })) },
   async listBlocks() { return unwrap(await getSupabase().rpc('list_running_blocks')) },
   async saveCheckpoint(id, payload) { return unwrap(await getSupabase().rpc('save_running_checkpoint', { p_run_id: id, p_payload: payload })) },

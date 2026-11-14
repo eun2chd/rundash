@@ -1,14 +1,20 @@
 import { advanceSimulation } from './simulation.js'
+import { weatherDrainAt } from './weather.js'
 
 // Rendering can stop in a background tab. Account for elapsed time in bounded
 // simulation steps so exhaustion/recovery and booster expiry remain consistent.
 export function advanceElapsed(sim, seconds, rhythm) {
-  if (!Number.isFinite(seconds) || seconds <= 0 || sim.paused || sim.finished) return
+  if (!Number.isFinite(seconds) || seconds <= 0) return
+  if (sim.paused || sim.finished) {
+    if (Number.isFinite(sim.weatherTimeMs)) sim.weatherTimeMs += seconds * 1000
+    return
+  }
   let remaining = Math.min(seconds, 7 * 24 * 3600)
   while (remaining > 1e-8 && !sim.finished) {
     const step = Math.min(0.1, remaining)
     if (rhythm && !sim.resting) rhythm.elapsed += step
-    advanceSimulation(sim, step)
+    advanceSimulation(sim, step, weatherDrainAt(sim.weatherTimeMs))
+    if (Number.isFinite(sim.weatherTimeMs)) sim.weatherTimeMs += step * 1000
     remaining -= step
   }
 }
@@ -44,6 +50,7 @@ export function restoreSimulation(base, checkpoint, now = Date.now()) {
   restored.practice = !!(base.practice || restored.practice)
   // New mounts always use real time; a development practice run stays practice.
   restored.timeScale = 1
+  if (Number.isFinite(base.weatherTimeMs)) restored.weatherTimeMs = checkpoint.savedAt
   advanceElapsed(restored, Math.max(0, (now - checkpoint.savedAt) / 1000))
   return restored
 }

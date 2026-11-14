@@ -1,7 +1,7 @@
 // @refresh reset
 import { forwardRef, memo, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
-import { LuFlag, LuBatteryWarning, LuBatteryLow, LuFootprints, LuDroplet, LuZap } from 'react-icons/lu'
+import { LuFlag, LuBatteryWarning, LuBatteryLow, LuFootprints, LuDroplet, LuZap, LuUsers } from 'react-icons/lu'
 import World from '../three/World'
 import Runner from '../three/Runner'
 import CameraRig from '../three/CameraRig'
@@ -23,6 +23,9 @@ import { getSettings } from '../lib/settings'
 import { advanceElapsed, restoreSimulation, checkpointKey } from '../lib/runClock'
 import useRunningSocial, { peerDistance } from '../lib/useRunningSocial'
 import { formationOffset } from '../lib/formation'
+import { weatherAt } from '../lib/weather'
+import { takeNewInvites } from '../lib/invites'
+import WeatherEffects from '../three/WeatherEffects'
 
 
 // 시뮬레이션 진행: 거리·체력·탈진/회복 (배속 적용)
@@ -31,11 +34,12 @@ function SimDriver({ tick }) {
   return null
 }
 
-const Scene = memo(function Scene({ sim, rhythm, profile, activity, ghosts, getMyDist, getGhostDist, getMyAction, items, stations, closedStations, biome, cheers, onCollect, tick, peers, getPeerDist, cameraDistance, getMyVisualDist, myLane }) {
+const Scene = memo(function Scene({ sim, rhythm, profile, activity, ghosts, getMyDist, getGhostDist, getMyAction, items, stations, closedStations, biome, cheers, onCollect, tick, peers, getPeerDist, cameraDistance, getMyVisualDist, myLane, weather, showActivity }) {
   return (
     <>
       <SimDriver tick={tick} />
-      <World biome={biome} />
+      <World biome={biome} weather={weather} />
+      {weather.precipitation && <WeatherEffects key={weather.id} weather={weather} getDistance={getMyDist} />}
       <CameraRig getDistance={cameraDistance} />
       <Runner
         getDistance={getMyVisualDist}
@@ -64,7 +68,7 @@ const Scene = memo(function Scene({ sim, rhythm, profile, activity, ghosts, getM
           cheerKey={cheers[g.id]?.at}
         />
       ))}
-      {peers.map(peer => <Runner key={peer.id} getDistance={() => getPeerDist(peer)} lane={peer.paired ? formationOffset(peer.slot).lane : -1.4} color={peer.color} skin={peer.skin} hair={peer.hair} outfit={peer.outfit} nickname={peer.nickname} getAction={() => ({ kneel: false, tired: 0, stopped: peer.paused })} />)}
+      {peers.map(peer => <Runner key={peer.id} getDistance={() => getPeerDist(peer)} lane={peer.paired ? formationOffset(peer.slot).lane : -1.4} color={peer.color} skin={peer.skin} hair={peer.hair} outfit={peer.outfit} nickname={peer.nickname} activity={showActivity ? peer.activity : undefined} getAction={() => ({ kneel: false, tired: 0, stopped: peer.paused })} />)}
       {stations.map((st) => (
         <AidStation key={st.id} station={st} getMyDist={getMyDist} closed={closedStations.includes(st.id)} />
       ))}
@@ -77,7 +81,7 @@ const Scene = memo(function Scene({ sim, rhythm, profile, activity, ghosts, getM
   )
 })
 
-export default forwardRef(function RunScreen({ profile, config, onFinish, confirmAction, onActivityVisibilityChange, overlayOpen = false }, ref) {
+export default forwardRef(function RunScreen({ profile, config, onFinish, confirmAction, onActivityVisibilityChange, overlayOpen = false, onCompanionStart }, ref) {
   const totalM = config.distanceKm * 1000
   const cadence = cadenceFor(config.paceSec)
   const ghosts = MOCK_RUNNERS
@@ -87,6 +91,7 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
   const sim = useRef(null)
   if (!sim.current) sim.current = restoreSimulation({
     elapsed: 0,
+    weatherTimeMs: Date.now(),
     dist: 0,
     totalM,
     targetSec: totalRunSec(config.paceSec, config.distanceKm),
@@ -121,12 +126,16 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
   itemsRef.current = items
   const [closedStations, setClosedStations] = useState(config.resume?.closedStations || [])
   const closedRef = useRef(new Set(config.resume?.closedStations || []))
+  const [weather, setWeather] = useState(() => weatherAt(sim.current.weatherTimeMs))
+  const weatherEpoch = useRef(weather.epoch)
   const [biomeIdx, setBiomeIdx] = useState(0)
   const biomeRef = useRef(0)
   const [cheers, setCheers] = useState({})
   const [toasts, setToasts] = useState([])
+  const seenInvites = useRef(new Set())
+  const [friendPanelRequest, setFriendPanelRequest] = useState(0)
   const [judge, setJudge] = useState(null)
-  const [paused, setPaused] = useState(!!config.resume?.sim.paused)
+  const [paused, setPaused] = useState(config.resume?.sim.paused ?? !!config.groupPaused)
   const [showActivity, setShowActivity] = useState(config.showActivity !== false)
   const room = useRaceRoom({ userId: profile.userId, nickname: profile.nickname, paused: paused || !ready })
   const toggleActivity = () => { const next = !showActivity; setShowActivity(next); onActivityVisibilityChange?.(next) }
@@ -152,6 +161,13 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
     const target = socialRef.current.peers.find(peer => peer.id === locateId)
     return target ? getPeerDist(target) : sim.current.dist
   }
+  const priorGroup = useRef(null)
+  useEffect(() => {
+    const group=social.pair
+    if (group) { tick(); sim.current.paused=!!group.paused; setPaused(!!group.paused) }
+    else if (priorGroup.current) { tick(); sim.current.paused=false; setPaused(false) }
+    priorGroup.current=group?.id || null
+  },[social.pair?.id,social.pair?.paused,tick])
   const persistence = useRef(null)
   const saveBusy = useRef(false)
   const [checkpointError, setCheckpointError] = useState('')
@@ -160,7 +176,7 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
     tick()
     const snapshot = { version: 1, runId: config.id, savedAt: Date.now(), sim: { ...sim.current },
       stats: { ...stats.current }, items: itemsRef.current, stations, closedStations: [...closedRef.current],
-      activity: config.activity, showActivity, rhythmElapsed: rhythm.current.elapsed }
+      activity: config.activity, showActivity, shareActivity: socialRef.current.shareActivity, publicLocation: socialRef.current.publicLocation, rhythmElapsed: rhythm.current.elapsed }
     try { localStorage.setItem(checkpointKey(profile.userId), JSON.stringify(snapshot)) }
     catch { setCheckpointError('자동 저장이 지연되고 있어요. 잠시 후 다시 저장할게요.') }
     if (cloud && !saveBusy.current) {
@@ -189,17 +205,25 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
 
   const bump = () => setStatsView({ ...stats.current })
 
-  const toast = useCallback((text, kind = 'info', icon = null) => {
+  const toast = useCallback((text, kind = 'info', icon = null, action = null) => {
     const id = Math.random()
-    setToasts((t) => [...t.slice(-3), { id, text, kind, icon }])
-    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 2600)
+    setToasts((t) => [...t.slice(-3), { id, text, kind, icon, action }])
+    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), kind === 'invite' ? 6500 : 2600)
   }, [])
+
+  useEffect(() => {
+    const fresh = takeNewInvites(social.invites,seenInvites.current)
+    if (fresh.length) {
+      const description = fresh.length > 1 ? `${fresh[0].nickname}님 외 ${fresh.length-1}명이 함께 달리기를 초대했어요` : `${fresh[0].nickname}님이 함께 달리기를 초대했어요`
+      toast(description, 'invite', LuUsers, { label: '초대 보기', onClick: () => setFriendPanelRequest(value => value+1) })
+    }
+  }, [social.invites, toast])
 
   useEffect(() => {
     const id = setTimeout(() => {
       setReady(true)
       clock.current = performance.now()
-      if (!config.resume) { sim.current.paused = false; rhythm.current.elapsed = 0 }
+      if (!config.resume) { sim.current.paused = !!config.groupPaused; rhythm.current.elapsed = 0 }
       persistence.current?.(true)
       toast(`출발! ${BIOMES[0].name} 구간`, 'km', LuFlag)
     }, 1400)
@@ -216,12 +240,7 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
     return best
   }, [getMyDist, getGhostDist, ghosts])
 
-  const finish = (completed, destination = 'result') => {
-    if (finishedRef.current) return
-    finishedRef.current = true
-    sim.current.paused = true
-    const s = sim.current
-    onFinish({
+  const runSnapshot = (completed) => { const s=sim.current; return {
       id: config.id,
       intensity: config.intensity,
       practice: s.practice,
@@ -240,7 +259,24 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
       suppliesTotal: itemsRef.current.filter((i) => i.stationId).length,
       medalsTotal: itemsRef.current.filter((i) => !i.stationId).length,
       ...stats.current,
-    }, destination)
+    } }
+  const finish = (completed, destination = 'result') => {
+    if (finishedRef.current) return
+    finishedRef.current = true; sim.current.paused = true
+    onFinish(runSnapshot(completed), destination)
+  }
+  const joinIds = useRef(new Map())
+  const acceptCompanionInvite = async (id) => {
+    tick()
+    if (exitPending.current || finishedRef.current || sim.current.finished) throw new Error('러닝 종료 후 다시 초대해 주세요.')
+    const wasPaused = sim.current.paused
+    exitPending.current = true; sim.current.paused = true; setPaused(true)
+    if (!joinIds.current.has(id)) joinIds.current.set(id,crypto.randomUUID())
+    try {
+      const value = await api.acceptInvite(id,runSnapshot(false),joinIds.current.get(id))
+      onCompanionStart(value)
+    } catch (error) { sim.current.paused=wasPaused; setPaused(wasPaused); throw error }
+    finally { exitPending.current=false }
   }
 
   const requestExit = async (destination = 'result') => {
@@ -248,8 +284,7 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
     if (finishedRef.current || sim.current.finished || exitPending.current || !ready) return
     exitPending.current = true
     const wasPaused = sim.current.paused
-    sim.current.paused = true
-    setPaused(true)
+    if (!socialRef.current.pair) { sim.current.paused = true; setPaused(true) }
     const exitingToMenu = destination !== 'result'
     try {
       const accepted = await confirmAction({
@@ -259,13 +294,14 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
         cancelLabel: wasPaused ? '돌아가기' : '계속 달리기',
       })
       if (accepted) finish(false, destination)
-      else { sim.current.paused = wasPaused; setPaused(wasPaused) }
+      else if (!socialRef.current.pair) { sim.current.paused = wasPaused; setPaused(wasPaused) }
     } finally { exitPending.current = false }
   }
   const pauseForManual = () => {
     tick()
     if (!ready || finishedRef.current || sim.current.finished || exitPending.current) return null
     const wasPaused = sim.current.paused
+    if (socialRef.current.pair) { manualPending.current=true; return () => { manualPending.current=false } }
     manualPending.current = true; sim.current.paused = true; setPaused(true)
     return () => { manualPending.current = false; if (!finishedRef.current) { sim.current.paused = wasPaused; setPaused(wasPaused) } }
   }
@@ -347,11 +383,20 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
     bump()
   }
 
-  const togglePause = () => {
+  const pauseRequest = useRef(false)
+  const togglePause = async () => {
     tick()
-    if (finishedRef.current || !ready) return
-    sim.current.paused = !sim.current.paused
-    setPaused(sim.current.paused)
+    if (finishedRef.current || !ready || pauseRequest.current) return
+    const group = socialRef.current.pair
+    if (group && group.leader_id !== profile.userId) return
+    const next = !sim.current.paused
+    pauseRequest.current = true
+    try {
+      if (group) await api.pauseGroup(next)
+      tick(); sim.current.paused=next; setPaused(next)
+      if (group) socialRef.current.refresh()
+    } catch { toast('지금은 일시정지를 바꾸지 못했어요. 잠시 후 다시 눌러 주세요.','warn') }
+    finally { pauseRequest.current=false }
   }
 
   const changeScale = (v) => {
@@ -392,6 +437,12 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
   loopRef.current = () => {
     const s = sim.current
     const my = s.dist
+    const currentWeather = weatherAt(s.weatherTimeMs)
+    if (currentWeather.epoch !== weatherEpoch.current) {
+      weatherEpoch.current = currentWeather.epoch
+      setWeather(currentWeather)
+      toast(`날씨가 바뀌었어요 · ${currentWeather.label} ${currentWeather.temperature}°C`, currentWeather.drainMultiplier > 1 ? 'warn' : 'info')
+    }
 
     const bi = biomeIndexAt(my)
     if (bi !== biomeRef.current) {
@@ -463,6 +514,8 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
           cameraDistance={cameraDistance}
           getMyVisualDist={getMyVisualDist}
           myLane={myFormation.lane}
+          weather={weather}
+          showActivity={showActivity}
           sim={sim}
           rhythm={rhythm}
           profile={profile}
@@ -484,8 +537,11 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
         <Hud
           sim={sim}
           room={room}
-          showPauseDialog={!overlayOpen}
+          showPauseDialog={!overlayOpen && !exitPending.current}
+          canPause={!social.pair || social.pair.leader_id === profile.userId}
+          onAcceptInvite={acceptCompanionInvite}
           social={social}
+          friendPanelRequest={friendPanelRequest}
           confirmAction={confirmAction}
           checkpointError={checkpointError}
           locating={!!locateId}
