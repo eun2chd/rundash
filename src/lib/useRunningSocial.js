@@ -8,7 +8,7 @@ export function peerDistance(peer, now = Date.now()) {
 
 export default function useRunningSocial({ profile, config, sim, ready }) {
   const [data, setData] = useState({ peers: [], invites: [], pair: null })
-  const [publicLocation, setPublicLocation] = useState(false)
+  const [publicLocation, setPublicLocation] = useState(true)
   const [allowInvites, setAllowInvites] = useState(true)
   const [error, setError] = useState('')
   const [focusId, setFocusId] = useState(null)
@@ -36,7 +36,7 @@ export default function useRunningSocial({ profile, config, sim, ready }) {
           setConnected(true); setError('')
         }
       } catch {
-        if (alive) { setConnected(false); setData({ peers: [], invites: [], pair: null }); setError('친구 연결을 확인해 주세요. 서버 업데이트가 필요할 수도 있어요.') }
+        if (alive) { setConnected(false); setData({ peers: [], invites: [], pair: null }); setError('친구 연결이 잠시 끊겼어요. 자동으로 다시 연결할게요.') }
       } finally { busy = false }
     }
     refreshRef.current = refresh

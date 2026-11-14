@@ -253,7 +253,7 @@ export default function App() {
           onStart={startRun}
         />
       )}
-      {screen === 'run' && <RunScreen ref={runControls} profile={profile} config={activeConfig} onFinish={finishRun} confirmAction={confirm} onActivityVisibilityChange={(visible) => setConfig((previous) => ({ ...previous, showActivity: visible }))} />}
+      {screen === 'run' && <RunScreen overlayOpen={!!question || manualOpen} ref={runControls} profile={profile} config={activeConfig} onFinish={finishRun} confirmAction={confirm} onActivityVisibilityChange={(visible) => setConfig((previous) => ({ ...previous, showActivity: visible }))} />}
       {screen === 'result' && <Result result={result} profile={profile} persisted={!user.is_anonymous} onAgain={() => navigate('setup')} />}
       {screen === 'mypage' && user && <MyPage user={user} profile={profile} onProfile={setProfile} confirmAction={confirm} onNavigate={navigate} />}
       {screen === 'support' && user && <Support suspended={account.suspended} />}

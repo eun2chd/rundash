@@ -15,12 +15,15 @@ import SupplyPanel from './SupplyPanel'
 import RunnerChat from './RunnerChat'
 import DeveloperDebug from './DeveloperDebug'
 import RunningMusic from './RunningMusic'
+import FriendPanel from './FriendPanel'
+import RoomPresence from './RoomPresence'
+import ConfirmDialog from './ConfirmDialog'
 
 export default function Hud({
   sim, getMyDist, getGhostDist, ghosts, nearestGhost, profile, config, totalM, biome,
   stats, items, stations, closedStations, rhythm, judge, cadence, toasts, paused, timeScale,
   onTimeScale, onPause, onQuit, onBeat, onCheer, onCollect, onCollectNearest, onBoost,
-  room, showActivity, onToggleActivity, realPeers = [],
+  room, showActivity, onToggleActivity, realPeers = [], social, confirmAction, checkpointError, locating, onLocateFriend, onReturnToRunner, showPauseDialog = true,
 }) {
   const [t, setT] = useState(() => snapshot())
   const [showMap, setShowMap] = useState(false)
@@ -83,9 +86,12 @@ export default function Hud({
           <button className="icon-btn" title="종료" onClick={onQuit}><LuLogOut /></button>
           <button className={`icon-btn ${showMap ? 'on' : ''}`} title="미니맵" onClick={() => setShowMap((v) => !v)}><LuMap /></button>
           <button className={`icon-btn ${showActivity ? 'on' : ''}`} title={showActivity ? '구름 말풍선 숨기기' : '구름 말풍선 보이기'} aria-label={showActivity ? '구름 말풍선 숨기기' : '구름 말풍선 보이기'} aria-pressed={showActivity} onClick={onToggleActivity}>{showActivity ? <LuCloud /> : <LuCloudOff />}</button>
+          <FriendPanel social={social} onLocate={id => { setShowMap(true); onLocateFriend(id) }} confirmAction={confirmAction} />
           <span className="pill-title">런대시</span>
           <span className="pill-sub">코스 01</span>
         </div>
+        {locating && <button className="chat-toggle" onClick={onReturnToRunner}>내 러너로 돌아가기</button>}
+        {checkpointError && <p className="checkpoint-notice" role="status">{checkpointError}</p>}
         <div className="pill info-pill"><BiomeIcon /> {Math.floor(km) + 1}km 구간 · {biome.name}</div>
         <div className="pill info-pill">{!config.anonymous && `Lv.${config.level} · `}{config.intensityLabel} · {config.anonymous ? '익명 체험' : t.practice ? '개발 체험 · XP 없음' : `예상 +${xpEstimate} XP`}</div>
         {nextStation ? (
@@ -162,7 +168,7 @@ export default function Hud({
       {/* 우상단: 접속 인원과 채팅방 */}
       <div className="hud-tr">
         <RunningMusic />
-        <div className="room-presence"><LuUsers /><span>{room.connection === 'connected' ? <>접속 <b>{room.online}</b>명 · 달리는 중 <b>{room.running}</b>명</> : '접속 인원 확인 중…'}</span><span className={`connection-dot ${room.connection === 'connected' ? 'online' : ''}`} /></div>
+        <RoomPresence room={room} />
         <button type="button" className="chat-toggle" aria-expanded={showChat} onClick={() => setShowChat((visible) => !visible)}><LuMessageCircle /> {showChat ? '채팅 숨기기' : '채팅 보이기'}</button>
         {showChat && <RunnerChat room={room} onHide={() => setShowChat(false)} />}
       </div>
@@ -201,18 +207,7 @@ export default function Hud({
         </div>
       )}
 
-      {paused && (
-        <div className="pause-overlay">
-          <div className="pause-card">
-            <h2>일시정지</h2>
-            <p>캐릭터가 제자리에서 기다리고 있어요.</p>
-            <div className="row">
-              <button className="btn primary" onClick={onPause}>계속 달리기</button>
-              <button className="btn ghost light" onClick={onQuit}>여기서 종료</button>
-            </div>
-          </div>
-        </div>
-      )}
+      {paused && showPauseDialog && <ConfirmDialog title="일시정지" description="캐릭터가 제자리에서 기다리고 있어요." cancelLabel="여기서 종료" confirmLabel="계속 달리기" eyebrow="잠시 쉬어가기" focusConfirm resumeShortcut onDismiss={onPause} onAnswer={resume => resume ? onPause() : onQuit()} />}
     </div>
   )
 }

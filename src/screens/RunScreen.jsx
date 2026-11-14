@@ -22,7 +22,6 @@ import useRaceRoom from '../lib/useRaceRoom'
 import { getSettings } from '../lib/settings'
 import { advanceElapsed, restoreSimulation, checkpointKey } from '../lib/runClock'
 import useRunningSocial, { peerDistance } from '../lib/useRunningSocial'
-import FriendPanel from '../components/FriendPanel'
 
 
 // 시뮬레이션 진행: 거리·체력·탈진/회복 (배속 적용)
@@ -76,7 +75,7 @@ const Scene = memo(function Scene({ sim, rhythm, profile, activity, ghosts, getM
   )
 })
 
-export default forwardRef(function RunScreen({ profile, config, onFinish, confirmAction, onActivityVisibilityChange }, ref) {
+export default forwardRef(function RunScreen({ profile, config, onFinish, confirmAction, onActivityVisibilityChange, overlayOpen = false }, ref) {
   const totalM = config.distanceKm * 1000
   const cadence = cadenceFor(config.paceSec)
   const ghosts = MOCK_RUNNERS
@@ -159,11 +158,11 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
       stats: { ...stats.current }, items: itemsRef.current, stations, closedStations: [...closedRef.current],
       activity: config.activity, showActivity, rhythmElapsed: rhythm.current.elapsed }
     try { localStorage.setItem(checkpointKey(profile.userId), JSON.stringify(snapshot)) }
-    catch { setCheckpointError('브라우저에 진행을 저장하지 못했어요. 서버 저장을 확인해 주세요.') }
+    catch { setCheckpointError('자동 저장이 지연되고 있어요. 잠시 후 다시 저장할게요.') }
     if (cloud && !saveBusy.current) {
       saveBusy.current = true
       try { await api.saveCheckpoint(config.id, snapshot); setCheckpointError('') }
-      catch { setCheckpointError('진행은 이 브라우저에 보관 중이에요. 서버 연결을 확인해 주세요.') }
+      catch { setCheckpointError('자동 저장이 지연되고 있어요. 잠시 후 다시 저장할게요.') }
       finally { saveBusy.current = false }
     }
   }
@@ -452,7 +451,6 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
 
   return (
     <div className="run-screen">
-      <div className="social-controls"><FriendPanel social={social} onLocate={id => { social.setFocusId(id); setLocateId(id) }} confirmAction={confirmAction} />{locateId && <button className="chat-toggle" onClick={() => { social.setFocusId(null); setLocateId(null) }}>내 러너로 돌아가기</button>}{checkpointError && <p className="checkpoint-notice" role="status">{checkpointError}</p>}</div>
       <Canvas camera={{ fov: 55, near: 0.1, far: 700, position: [0, 5, -10] }} dpr={[1, 1.75]}>
         <Scene
           tick={tick}
@@ -480,6 +478,13 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
         <Hud
           sim={sim}
           room={room}
+          showPauseDialog={!overlayOpen}
+          social={social}
+          confirmAction={confirmAction}
+          checkpointError={checkpointError}
+          locating={!!locateId}
+          onLocateFriend={id => { social.setFocusId(id); setLocateId(id) }}
+          onReturnToRunner={() => { social.setFocusId(null); setLocateId(null) }}
           realPeers={social.peers.map(peer => ({ ...peer, dist: getPeerDist(peer), lane: peer.paired ? 1.4 : -1.4 }))}
           showActivity={showActivity}
           onToggleActivity={toggleActivity}

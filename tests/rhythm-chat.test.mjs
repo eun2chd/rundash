@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { rhythmFrame, judgeRhythm } from '../src/lib/rhythm.js'
-import { mergeMessages, presenceCounts } from '../src/lib/chat.js'
+import { mergeMessages, presenceCounts, presenceMembers } from '../src/lib/chat.js'
 
 const stats = () => ({ score: 0, combo: 0, maxCombo: 0, perfect: 0, good: 0 })
 test('the visible center is PERFECT, the surrounding zone GOOD, and edges MISS', () => {
@@ -36,4 +36,17 @@ test('reconnect and history load merge messages without duplicates or chronology
 test('presence counts accounts once across tabs and separates paused runners', () => {
   assert.deepEqual(presenceCounts({ alice: [{ status: 'running' }, { status: 'paused' }], bob: [{ status: 'paused' }], stale: [] }), { online: 2, running: 1 })
   assert.deepEqual(presenceCounts({}), { online: 0, running: 0 })
+})
+
+test('presence roster deduplicates tabs, prefers running status and never exposes raw IDs as nicknames', () => {
+  const members = presenceMembers({
+    alice: [{ nickname: '앨리스', status: 'paused' }, { nickname: '앨리스', status: 'running' }],
+    bob: [{ nickname: '친구러너', status: 'paused' }],
+    missing: [{}], stale: [], malformed: null,
+  })
+  assert.equal(members.length, 3)
+  assert.deepEqual(members[0], { id: 'alice', nickname: '앨리스', status: 'running' })
+  assert.equal(members[1].status, 'paused')
+  assert.equal(members[2].nickname, '러너')
+  assert.deepEqual(presenceMembers({}), [])
 })

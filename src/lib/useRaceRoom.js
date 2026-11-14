@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { getSettings } from './settings'
 import { getSupabase } from './supabase'
-import { mergeMessages, presenceCounts } from './chat'
+import { mergeMessages, presenceMembers } from './chat'
 
 const roomCleanup = new WeakMap()
 
 export default function useRaceRoom({ userId, nickname, paused }) {
   const [messages, setMessages] = useState([])
-  const [counts, setCounts] = useState({ online: 0, running: 0 })
+  const [counts, setCounts] = useState({ online: 0, running: 0, members: [] })
   const [connection, setConnection] = useState('connecting')
   const [error, setError] = useState('')
   const [sending, setSending] = useState(false)
@@ -25,7 +25,11 @@ export default function useRaceRoom({ userId, nickname, paused }) {
       if (!alive) return
       channel = client.channel('rundash-running-room', { config: { presence: { key: userId } } })
       channelRef.current = channel
-      const sync = () => { if (alive) setCounts(presenceCounts(channel.presenceState())) }
+      const sync = () => {
+        if (!alive) return
+        const members = presenceMembers(channel.presenceState())
+        setCounts({ members, online: members.length, running: members.filter(member => member.status === 'running').length })
+      }
       channel.on('presence', { event: 'sync' }, sync)
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'race_messages' }, ({ new: row }) => { if (alive) setMessages((previous) => mergeMessages(previous, [row])) })
         .subscribe((status) => {
@@ -40,7 +44,7 @@ export default function useRaceRoom({ userId, nickname, paused }) {
                 else { setMessages((previous) => mergeMessages(previous, data || [])); setError('') }
               })
           } else if (['CHANNEL_ERROR', 'TIMED_OUT', 'CLOSED'].includes(status)) {
-            setConnection('reconnecting'); setCounts({ online: 0, running: 0 })
+            setConnection('reconnecting'); setCounts({ online: 0, running: 0, members: [] })
           }
         })
     }
