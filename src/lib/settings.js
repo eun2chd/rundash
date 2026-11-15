@@ -1,5 +1,5 @@
 export const DEFAULT_SETTINGS = {
-  xpBase: 100, xpStep: 20, xpPerKm: 100, completionBonus: .2,
+  xpBase: 300, xpStep: 100, xpPerKm: 100, completionBonus: .2,
   anonymousMaxKm: 10, maxDistanceKm: 100,
   anonymousPace: 540, anonymousStamina: 100, anonymousRecovery: 60,
   boostCooldown: 90, boostCost: 12, boostMultiplier: 1.5,

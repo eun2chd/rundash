@@ -108,6 +108,8 @@ test('growth SQL: ownership, reward integrity, retry safety, practice and level 
       await start(runId(7))
       await assert.rejects(finish(runId(6), { distanceKm: 0, elapsedSec: 0 }), /다른 창/)
       await db.exec('reset role;')
+      // Compare against the curve this database holds (migrations up to 009), not the app defaults.
+      configureSettings((await db.query('select value from public.game_settings')).rows[0].value)
       for (let level = 1; level <= 50; level++) {
         assert.equal(await scalar('select public.training_level($1) as value', [xpForLevel(level)]), level)
         for (const intensity of ['easy', 'steady', 'challenge']) assert.equal(await scalar('select public.training_pace($1,$2) as value', [level, intensity]), trainingFor(xpForLevel(level), intensity).paceSec)
