@@ -24,3 +24,11 @@ test('month grid starts on Sunday and pads to full weeks', () => {
   assert.deepEqual(shiftMonth({ year: 2026, month: 12 }, 1), { year: 2027, month: 1 })
   assert.deepEqual(shiftMonth({ year: 2026, month: 1 }, -1), { year: 2025, month: 12 })
 })
+
+test('board values and period labels', async () => {
+  const { boardValue, periodLabel } = await import('../src/lib/ranking.js')
+  assert.deepEqual(boardValue('week', { km: 5.5, runs: 2 }), { main: '5.50km', sub: '2회 달림' })
+  assert.deepEqual(boardValue('level', { level: 12, xp: 15400 }), { main: 'Lv.12', sub: '15,400 XP' })
+  assert.equal(periodLabel('month', 1), '지난달')
+  assert.equal(periodLabel('total', 0), '')
+})

@@ -1219,3 +1219,7 @@ button.room-presence:focus-visible { outline: 2px solid #fff6d5; outline-offset:
 .resume-card span { font-size: 13px; font-variant-numeric: tabular-nums; }
 .resume-card .btn { margin: 0; height: 46px; width: 100%; }
 .resume-card small { font-size: 12px; }
+.ranking-boards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin: 16px 0 10px; }
+.ranking-boards button { padding: 10px 6px; border: 1px solid var(--line); border-radius: 12px; background: #fff; font-weight: 800; font-size: 14px; }
+.ranking-boards button.on { border-color: var(--olive); background: var(--olive); color: var(--cream); }
+.ranking-card > .ranking-tabs { margin-bottom: 2px; }

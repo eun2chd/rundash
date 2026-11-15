@@ -62,5 +62,44 @@ test('weekly ranking and monthly attendance calendar', async t => {
    await db.exec('reset role; set role authenticated'); await db.query("select set_config('request.jwt.claim.sub','',false)")
    await assert.rejects(db.query('select public.weekly_ranking(0)'), /로그인/)
   })
+  const board=async(user, kind, offset=0) => { await identity(user); return scalar('select public.runner_ranking($1,$2) value',[kind, offset]) }
+  const admin='55555555-5555-4555-8555-555555555555'
+  await t.test('admins never appear on any board and are told why',async()=>{
+   await root()
+   await db.query("insert into auth.users(id,email) values($1,'admin@private.test')",[admin])
+   await db.query("insert into public.profiles(id,nickname,color,skin) values($1,'Boss','#e07b39','#f6d1b0')",[admin])
+   await db.query('insert into public.admin_members(user_id) values($1)',[admin])
+   await db.query("insert into public.runner_progress(user_id,xp,total_distance_km,run_count) values($1,999999,999,99)",[admin])
+   await addRun(admin, 100, thisWeek)
+   for(const kind of ['week','month','total','level']) {
+    const result=await board(admin, kind)
+    assert(!result.items.some(row => row.nickname === 'Boss'), kind)
+    assert.equal(result.me, null); assert.equal(result.excluded, true)
+   }
+   assert.equal((await board(users.a,'week')).excluded, false)
+   assert(!(await ranking(users.a)).items.some(row => row.nickname === 'Boss'))
+  })
+  await t.test('monthly board covers the calendar month and last month separately',async()=>{
+   await root(); await db.query("insert into public.runs(user_id,details,created_at) values($1,$2,(date_trunc('month', now() at time zone 'Asia/Seoul') at time zone 'Asia/Seoul') - interval '1 hour')",[users.b,JSON.stringify({ distanceKm: 40 })])
+   const month=await board(users.a,'month')
+   assert(month.items.some(row => row.nickname === 'RunnerA'))
+   assert.equal(month.items.find(row => row.nickname === 'RunnerB').km, 7)
+   const last=await board(users.a,'month',1)
+   assert.equal(last.items.find(row => row.nickname === 'RunnerB').km, 40)
+   assert.ok(month.resetsAt); assert.equal(last.resetsAt, null)
+   assert.match(month.periodStart, /^\d{4}-\d{2}-01$/)
+  })
+  await t.test('all-time distance and level boards rank by progress',async()=>{
+   await root()
+   await db.query("insert into public.runner_progress(user_id,xp,total_distance_km,run_count) values($1,300,12,4),($2,900,30,8) on conflict(user_id) do update set xp=excluded.xp,total_distance_km=excluded.total_distance_km,run_count=excluded.run_count",[users.b,users.c])
+   await db.query("update public.runner_progress set total_distance_km=5.5,run_count=2,updated_at=now()-interval '1 day' where user_id=$1",[users.a])
+   const total=await board(users.a,'total')
+   assert.deepEqual(total.items.map(row => [row.nickname, Number(row.km), row.runs]), [['RunnerC',30,8],['RunnerB',12,4],['RunnerA',5.5,2]])
+   const level=await board(users.b,'level')
+   assert.deepEqual(level.items.map(row => [row.rank, row.nickname, row.level]), [[1,'RunnerA',6],[2,'RunnerC',6],[3,'RunnerB',3]])
+   assert.equal(level.me.rank, 3); assert.equal(level.resetsAt, null)
+   await assert.rejects(board(users.a,'level',1), /지난 기간/)
+   await assert.rejects(board(users.a,'speed'), /종류/)
+  })
  } finally { await db.close() }
 })
