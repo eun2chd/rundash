@@ -38,7 +38,7 @@ export const api = {
   async adminSaveSettings(value, version) { return unwrap(await getSupabase().rpc('admin_save_settings', { p_value: value, p_version: version })) },
   async adminAudit(page = 0) { return unwrap(await getSupabase().rpc('admin_audit_list', { p_page: page })) },
   async signIn({ email, password }) { return unwrap(await getSupabase().auth.signInWithPassword({ email, password })).user },
-  async signUp({ email, password, nickname }) { if (!isValidPassword(password)) throw new Error('비밀번호는 8자 이상, 특수문자를 1개 이상 포함해 주세요.'); return unwrap(await getSupabase().auth.signUp({ email, password, options: { emailRedirectTo: window.location.origin, data: { nickname } } })) },
+  async signUp({ email, password, nickname, consent }) { if (!isValidPassword(password)) throw new Error('비밀번호는 8자 이상, 특수문자를 1개 이상 포함해 주세요.'); return unwrap(await getSupabase().auth.signUp({ email, password, options: { emailRedirectTo: window.location.origin, data: { nickname, consent } } })) },
   async signInAnonymously() { return unwrap(await getSupabase().auth.signInAnonymously()).user },
   async requestPasswordReset(email) {
     unwrap(await getSupabase().auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/?auth=reset-password` }))
@@ -48,6 +48,11 @@ export const api = {
   },
   async updatePassword(password) { if (!isValidPassword(password)) throw new Error('비밀번호는 8자 이상, 특수문자를 1개 이상 포함해 주세요.'); return unwrap(await getSupabase().auth.updateUser({ password })) },
   async signOut() { unwrap(await getSupabase().auth.signOut()) },
+  // The auth user is gone after the RPC, so only the local session can be cleared.
+  async deleteAccount(confirmText) { unwrap(await getSupabase().rpc('delete_my_account', { p_confirm: confirmText })); await getSupabase().auth.signOut({ scope: 'local' }) },
+  async reportMessage(id, reason) { unwrap(await getSupabase().rpc('report_race_message', { p_message_id: id, p_reason: reason })) },
+  async adminChatReports(status = 'open', page = 0) { return unwrap(await getSupabase().rpc('admin_chat_reports', { p_status: status, p_page: page })) },
+  async adminResolveChatReport(id, action, reason) { unwrap(await getSupabase().rpc('admin_resolve_chat_report', { p_message_id: id, p_action: action, p_reason: reason })) },
   async getSession() {
     const { session } = unwrap(await getSupabase().auth.getSession())
     return session ? unwrap(await getSupabase().auth.getUser()).user : null

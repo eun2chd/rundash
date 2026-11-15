@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import { LuUser, LuLock, LuActivity, LuCamera, LuTrash2 } from 'react-icons/lu'
+import { LuUser, LuLock, LuActivity, LuCamera, LuTrash2, LuUserX } from 'react-icons/lu'
 import { api } from '../lib/api'
 import { isValidPassword, PASSWORD_RULE } from '../lib/password'
 import GrowthCard from '../components/GrowthCard'
 import { fmtPace, fmtTime } from '../lib/pace'
+
+const TAB_EYEBROWS = { info: 'PROFILE', password: 'SECURITY', records: 'RUNNING HISTORY', withdraw: 'ACCOUNT' }
+const TAB_TITLES = { info: '기본정보', password: '비밀번호 변경', records: '러닝 기록', withdraw: '회원 탈퇴' }
 
 async function preparePhoto(file) {
   if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 5 * 1024 * 1024) throw new Error('5MB 이하의 JPG, PNG, WebP 이미지를 선택해 주세요.')
@@ -21,7 +24,7 @@ async function preparePhoto(file) {
   } finally { bitmap.close() }
 }
 
-export default function MyPage({ user, profile, onProfile, confirmAction, onNavigate }) {
+export default function MyPage({ user, profile, onProfile, confirmAction, onNavigate, onDeleted }) {
   const [tab, setTab] = useState('info')
   const [photo, setPhoto] = useState(profile?.avatar_image || null)
   const [busy, setBusy] = useState(false)
@@ -33,6 +36,7 @@ export default function MyPage({ user, profile, onProfile, confirmAction, onNavi
   const [data, setData] = useState(null)
   const [loadError, setLoadError] = useState(false)
   const [refresh, setRefresh] = useState(0)
+  const [withdrawText, setWithdrawText] = useState('')
   const fileInput = useRef(null)
   const anonymous = user.is_anonymous
   const nickname = profile?.nickname || user.user_metadata?.nickname || '익명 러너'
@@ -47,7 +51,7 @@ export default function MyPage({ user, profile, onProfile, confirmAction, onNavi
   const chooseTab = async (next) => {
     if (busy || tab === next) return
     if ((photo !== (profile?.avatar_image || null) || current || password || repeat) && !await confirmAction({ title: '메뉴를 이동할까요?', description: '저장하지 않은 변경사항은 사라져요.' })) return
-    setPhoto(profile?.avatar_image || null); setCurrent(''); setPassword(''); setRepeat(''); setError(''); setNotice(''); setTab(next)
+    setPhoto(profile?.avatar_image || null); setCurrent(''); setPassword(''); setRepeat(''); setWithdrawText(''); setError(''); setNotice(''); setTab(next)
   }
   const pickPhoto = async (event) => {
     const file = event.target.files?.[0]; event.target.value = ''
@@ -58,6 +62,15 @@ export default function MyPage({ user, profile, onProfile, confirmAction, onNavi
   const savePhoto = async () => {
     setBusy(true); setError(''); setNotice('')
     try { onProfile(await api.saveAvatar(photo)); setNotice('프로필 사진을 저장했어요.') } catch { setError('사진을 저장하지 못했어요. 잠시 후 다시 시도해 주세요.') } finally { setBusy(false) }
+  }
+  const withdrawWord = profile?.nickname || '탈퇴'
+  const withdraw = async (event) => {
+    event.preventDefault()
+    if (busy || withdrawText.trim() !== withdrawWord) return
+    if (!await confirmAction({ title: '정말 탈퇴할까요?', description: '러너, 러닝 기록, 경험치, 채팅이 모두 삭제되며 되돌릴 수 없어요.', confirmLabel: '탈퇴하기', cancelLabel: '계속 이용하기' })) return
+    setBusy(true); setError(''); setNotice('')
+    try { await api.deleteAccount(withdrawText.trim()); onDeleted() }
+    catch (err) { setError(err.message || '탈퇴하지 못했어요. 잠시 후 다시 시도해 주세요.'); setBusy(false) }
   }
   const changePassword = async (event) => {
     event.preventDefault()
@@ -71,9 +84,9 @@ export default function MyPage({ user, profile, onProfile, confirmAction, onNavi
   }
   return <div className="mypage-screen">
     <div className="mypage-layout">
-      <aside className="card mypage-sidebar"><div className="account-mini">{profile?.avatar_image ? <img src={profile.avatar_image} alt="내 프로필" /> : <span className="account-avatar"><LuUser /></span>}<strong>{nickname}</strong><span>{anonymous ? '익명 러너' : '나의 러너 계정'}</span></div><nav aria-label="마이페이지 메뉴">{[['info', '기본정보', LuUser], ['password', '비밀번호 변경', LuLock], ['records', '러닝 기록', LuActivity]].map(([key, label, Icon]) => <button type="button" key={key} className={tab === key ? 'active' : ''} aria-current={tab === key ? 'page' : undefined} disabled={busy} onClick={() => chooseTab(key)}><Icon />{label}</button>)}</nav></aside>
+      <aside className="card mypage-sidebar"><div className="account-mini">{profile?.avatar_image ? <img src={profile.avatar_image} alt="내 프로필" /> : <span className="account-avatar"><LuUser /></span>}<strong>{nickname}</strong><span>{anonymous ? '익명 러너' : '나의 러너 계정'}</span></div><nav aria-label="마이페이지 메뉴">{[['info', '기본정보', LuUser], ['password', '비밀번호 변경', LuLock], ['records', '러닝 기록', LuActivity], ['withdraw', '회원 탈퇴', LuUserX]].map(([key, label, Icon]) => <button type="button" key={key} className={tab === key ? 'active' : ''} aria-current={tab === key ? 'page' : undefined} disabled={busy} onClick={() => chooseTab(key)}><Icon />{label}</button>)}</nav></aside>
       <section className="card mypage-content" aria-busy={busy}>
-        <div className="eyebrow">{tab === 'info' ? 'PROFILE' : tab === 'password' ? 'SECURITY' : 'RUNNING HISTORY'}</div><h2>{tab === 'info' ? '기본정보' : tab === 'password' ? '비밀번호 변경' : '러닝 기록'}</h2>
+        <div className="eyebrow">{TAB_EYEBROWS[tab]}</div><h2>{TAB_TITLES[tab]}</h2>
         {error && <p className="error" role="alert">{error}</p>}{notice && <p className="account-notice" role="status">{notice}</p>}
         {anonymous ? <div className="account-empty"><LuUser /><h3>익명으로 가볍게 달리는 중</h3><p>익명 계정은 사진, 비밀번호와 러닝 기록을 저장하지 않아요. 회원 계정에서 나만의 프로필과 성장을 관리할 수 있어요.</p><button className="btn primary" onClick={() => onNavigate('signup')}>회원가입으로 이동</button></div> : <>
           {tab === 'info' && <>
@@ -106,6 +119,13 @@ export default function MyPage({ user, profile, onProfile, confirmAction, onNavi
               </div>
             </div>
           </>}
+          {tab === 'withdraw' && <form className="account-withdraw" onSubmit={withdraw}>
+            <p>탈퇴하면 아래 정보가 즉시 삭제되며 복구할 수 없어요.</p>
+            <ul><li>러너 캐릭터와 꾸미기 설정, 프로필 사진</li><li>러닝 기록, 경험치와 레벨</li><li>러너 라운지 채팅, 친구 차단과 동행 기록</li><li>문의 내역</li></ul>
+            <p>부정 이용 방지를 위한 운영 조치 기록은 <a href="/privacy#retention" target="_blank" rel="noopener">개인정보처리방침</a>에 따라 1년간 보관한 뒤 파기해요.</p>
+            <label className="field"><span>확인을 위해 <b>{withdrawWord}</b>을(를) 입력해 주세요.</span><input value={withdrawText} onChange={e => setWithdrawText(e.target.value)} autoComplete="off" disabled={busy} /></label>
+            <button className="btn danger" disabled={busy || withdrawText.trim() !== withdrawWord}>{busy ? '처리 중…' : '회원 탈퇴'}</button>
+          </form>}
           {tab === 'password' && <form className="account-password" onSubmit={changePassword}><p>계정을 안전하게 지킬 새 비밀번호를 정해 주세요.</p><label className="field"><span>현재 비밀번호</span><input type="password" autoComplete="current-password" value={current} onChange={e => setCurrent(e.target.value)} required disabled={busy} /></label><label className="field"><span>새 비밀번호</span><input type="password" autoComplete="new-password" value={password} onChange={e => setPassword(e.target.value)} required disabled={busy} /><small>{PASSWORD_RULE}</small></label><label className="field"><span>새 비밀번호 확인</span><input type="password" autoComplete="new-password" value={repeat} onChange={e => setRepeat(e.target.value)} required disabled={busy} />{repeat && password !== repeat && <small role="status">비밀번호가 일치하지 않아요.</small>}</label><button className="btn primary" disabled={busy || !current || !isValidPassword(password) || password !== repeat}>{busy ? '변경 중…' : '비밀번호 변경'}</button></form>}
           {tab === 'records' && (loadError ? <div className="account-empty"><p>기록을 불러오지 못했어요.</p><button className="btn ghost" onClick={() => setRefresh(v => v + 1)}>다시 불러오기</button></div> : !profile ? <p>러너를 만들고 첫 러닝을 시작해 보세요.</p> : !data ? <p role="status">러닝 기록을 불러오고 있어요…</p> : <><div className="account-stats"><div><span>누적 거리</span><strong>{Number(data.growth.total_distance_km || 0).toFixed(2)}<small> km</small></strong></div><div><span>러닝 횟수</span><strong>{data.growth.run_count || 0}<small> 회</small></strong></div></div><GrowthCard xp={data.growth.xp} />{data.runs.length ? <div className="account-runs">{data.runs.map(run => <article key={run.id}><div><strong>{run.completed ? '완주한 러닝' : '여기까지 달렸어요'}</strong><time>{new Date(run.createdAt).toLocaleDateString('ko-KR')}</time></div><p>{Number(run.distanceKm || 0).toFixed(2)}km · {fmtTime(run.elapsedSec || 0)} · {fmtPace(run.paceSec || 0)}/km</p></article>)}</div> : <div className="account-empty"><LuActivity /><h3>첫 발걸음을 기다리고 있어요</h3><p>러닝을 마치면 이곳에 기록이 쌓여요.</p><button className="btn primary" onClick={() => onNavigate('setup')}>러닝 준비하기</button></div>}</>)}
         </>}

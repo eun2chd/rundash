@@ -17,3 +17,5 @@ export function presenceMembers(state = {}) {
     return [{ id, nickname, status: sessions.some(session => session.status === 'running') ? 'running' : 'paused' }]
   })
 }
+
+export const REPORT_REASONS = { abuse: '욕설·괴롭힘', sexual: '성적인 내용', spam: '광고·도배', privacy: '개인정보 노출', other: '기타' }

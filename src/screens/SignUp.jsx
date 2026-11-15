@@ -3,6 +3,8 @@ import { useState } from 'react'
 import { api } from '../lib/api'
 import Logo from '../components/Logo'
 
+const POLICY_VERSION = '2026-11-15'
+
 export default function SignUp({ onLogin, onBack, onVerify, confirmAction }) {
   const [nickname, setNickname] = useState('')
   const [email, setEmail] = useState('')
@@ -14,6 +16,9 @@ export default function SignUp({ onLogin, onBack, onVerify, confirmAction }) {
   const [nicknameStatus, setNicknameStatus] = useState('idle')
   const [checkedNickname, setCheckedNickname] = useState('')
   const [nicknameError, setNicknameError] = useState('')
+  const [agreements, setAgreements] = useState({ age: false, terms: false, privacy: false })
+  const agreedAll = agreements.age && agreements.terms && agreements.privacy
+  const toggleAgreement = (key) => (e) => { setAgreements(previous => ({ ...previous, [key]: e.target.checked })); setError('') }
   const name = nickname.trim()
   const validNickname = /^[가-힣a-zA-Z0-9_]{2,10}$/.test(name)
   const checking = nicknameStatus === 'checking'
@@ -45,6 +50,7 @@ export default function SignUp({ onLogin, onBack, onVerify, confirmAction }) {
     if (!available) return setError('닉네임 중복 확인을 먼저 해주세요.')
     if (!isValidPassword(password)) return setError('비밀번호는 8자 이상, 특수문자를 1개 이상 포함해 주세요.')
     if (password !== passwordConfirm) return setError('비밀번호가 서로 달라요. 다시 확인해 주세요.')
+    if (!agreedAll) return setError('만 14세 이상 확인과 필수 약관 동의를 체크해 주세요.')
     setLoading(true)
     setError('')
     try {
@@ -54,7 +60,7 @@ export default function SignUp({ onLogin, onBack, onVerify, confirmAction }) {
         setNicknameError('이미 사용 중인 닉네임이에요. 다른 이름을 정해 주세요.')
         return
       }
-      const data = await api.signUp({ email: email.trim(), password, nickname: name })
+      const data = await api.signUp({ email: email.trim(), password, nickname: name, consent: { age14: true, terms: POLICY_VERSION, privacy: POLICY_VERSION, agreedAt: new Date().toISOString() } })
       if (data.session) await onLogin(data.user)
       else { setSent(true); setPassword(''); setPasswordConfirm('') }
     } catch (err) {
@@ -95,8 +101,14 @@ export default function SignUp({ onLogin, onBack, onVerify, confirmAction }) {
           <label className="field"><span>이메일</span><input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="runner@email.com" autoComplete="email" disabled={loading} /></label>
           <label className="field"><span>비밀번호</span><input type="password" required minLength={8} value={password} onChange={(e) => { setPassword(e.target.value); setError('') }} placeholder="8자 이상 · 특수문자 포함" autoComplete="new-password" disabled={loading} /><small>{PASSWORD_RULE}</small></label>
           <label className="field"><span>비밀번호 확인</span><input type="password" required minLength={8} value={passwordConfirm} onChange={(e) => { setPasswordConfirm(e.target.value); setError('') }} placeholder="비밀번호를 한 번 더 입력해 주세요" autoComplete="new-password" aria-invalid={passwordMismatch} aria-describedby="signup-password-status" disabled={loading} /><small id="signup-password-status" className={passwordMismatch ? 'warn' : ''} role="status">{passwordMismatch ? '비밀번호가 서로 달라요.' : passwordsMatch ? '비밀번호가 일치해요.' : '같은 비밀번호를 한 번 더 입력해 주세요.'}</small></label>
+          <fieldset className="signup-agreements" disabled={loading}>
+            <legend className="sr-only">가입 동의</legend>
+            <label><input type="checkbox" checked={agreements.age} onChange={toggleAgreement('age')} /> <span>(필수) 만 14세 이상입니다.</span></label>
+            <label><input type="checkbox" checked={agreements.terms} onChange={toggleAgreement('terms')} /> <span>(필수) <a href="/terms" target="_blank" rel="noopener">이용약관</a>에 동의합니다.</span></label>
+            <label><input type="checkbox" checked={agreements.privacy} onChange={toggleAgreement('privacy')} /> <span>(필수) <a href="/privacy" target="_blank" rel="noopener">개인정보 수집·이용과 국외 이전</a> 내용을 확인했습니다.</span></label>
+          </fieldset>
           {error && <p className="error" role="alert">{error}</p>}
-          <button className="btn primary block" disabled={loading || !available || !passwordsMatch}>{loading ? '가입하는 중…' : '가입하고 러너 만들기 →'}</button>
+          <button className="btn primary block" disabled={loading || !available || !passwordsMatch || !agreedAll}>{loading ? '가입하는 중…' : '가입하고 러너 만들기 →'}</button>
           <p className="note">닉네임은 캐릭터 저장 시 확정돼요.</p>
         </form>}
       </section>

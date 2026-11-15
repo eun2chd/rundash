@@ -1048,3 +1048,32 @@ button.room-presence:focus-visible { outline: 2px solid #fff6d5; outline-offset:
   .rhythm-instruction { display: none; }
 }
 .hud { z-index: 30; }
+
+/* ─── 푸터 ─── */
+.site-footer { border-top: 1px solid var(--line); background: var(--card); }
+.site-footer-inner { max-width: 1040px; margin: 0 auto; padding: 20px 24px 28px; display: grid; gap: 6px; font-size: 13px; color: var(--ink); }
+.site-footer-links { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-bottom: 4px; }
+.site-footer-links a { color: var(--ink); text-decoration: none; }
+.site-footer-links a:hover { text-decoration: underline; }
+.site-footer-links b { font-weight: 700; }
+@media (max-width: 600px) { .site-footer-inner { padding: 18px 16px 24px; } }
+.signup-agreements { border: 1px solid var(--line); border-radius: 12px; background: #fff; padding: 12px 14px; margin: 4px 0 16px; display: grid; gap: 8px; font-size: 13px; }
+.signup-agreements label { display: flex; align-items: flex-start; gap: 8px; cursor: pointer; line-height: 1.5; }
+.signup-agreements input { width: 16px; height: 16px; margin-top: 2px; flex: none; accent-color: var(--olive); }
+.signup-agreements a { color: var(--olive-d); font-weight: 700; }
+.login-legal { font-size: 12px; margin-top: 8px; text-align: center; }
+.login-legal a { color: var(--olive-d); font-weight: 700; }
+
+/* ─── 회원 탈퇴 ─── */
+.account-withdraw { max-width: 520px; display: grid; gap: 12px; }
+.account-withdraw ul { padding-left: 20px; display: grid; gap: 4px; }
+.account-withdraw a { color: var(--olive-d); font-weight: 700; }
+.btn.danger { background: #a12d1c; color: var(--cream); justify-self: start; }
+.btn.danger:hover:not(:disabled) { background: #85230f; }
+.app-notice { border-color: var(--olive); }
+.chat-report, .chat-reported { font-size: 9px; border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; }
+.chat-report:hover { border-color: #a12d1c; color: #a12d1c; }
+.chat-report-reasons { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.chat-report-reasons button { font-size: 11px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 99px; background: #fff; }
+.chat-report-reasons button:hover:not(:disabled) { border-color: var(--olive); }
+.chat-notice { color: var(--olive-d); }

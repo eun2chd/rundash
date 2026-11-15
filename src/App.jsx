@@ -11,6 +11,7 @@ import ConfirmDialog from './components/ConfirmDialog'
 import useConfirmation from './lib/useConfirmation'
 import ManualDialog from './components/ManualDialog'
 import Support from './screens/Support'
+import Footer from './components/Footer'
 import { configureSettings, getSettings } from './lib/settings'
 import { readLocalCheckpoint, clearLocalCheckpoint, validCheckpoint } from './lib/runClock'
 
@@ -43,6 +44,7 @@ export default function App() {
   const startId = useRef(null)
   const [result, setResult] = useState(null)
   const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
   const [pendingRun, setPendingRun] = useState(null)
   const [saving, setSaving] = useState(false)
   const recovery = useRef(recoveryRequested)
@@ -66,6 +68,7 @@ export default function App() {
   const enter = async (u) => {
     const [settings, status] = await Promise.all([api.getSettings(), api.accountStatus()])
     configureSettings(settings.value)
+    setNotice('')
     setAccount(status)
     setUser(u)
     const p = u.is_anonymous ? null : await api.getProfile(u.id)
@@ -242,6 +245,7 @@ export default function App() {
       <Suspense fallback={<Loading text="화면을 준비하고 있어요." />}>
       {screen === 'loading' && <Loading text="러너를 깨우고 있어요." />}
       {error && screen !== 'saving' && <div className="app-error" role="alert">{error}<button className="link" onClick={() => setError('')}>닫기</button></div>}
+      {notice && !error && <div className="app-error app-notice" role="status">{notice}<button className="link" onClick={() => setNotice('')}>닫기</button></div>}
       {screen === 'saving' && (saving ? <Loading text="러닝 기록을 저장하고 있어요." /> : <div className="loading-screen"><p role="alert">기록을 저장하지 못했어요. {error}</p><button className="btn primary" onClick={() => finishRun(pendingRun, pendingDestination.current)}>다시 저장하기</button></div>)}
       {screen === 'login' && <Login onLogin={enter} onSignUp={() => navigate('signup')} onHelp={navigate} confirmAction={confirm} />}
       {screen === 'signup' && <SignUp onLogin={enter} onBack={() => navigate('login')} onVerify={() => navigate('verify-email')} confirmAction={confirm} />}
@@ -264,11 +268,12 @@ export default function App() {
       )}
       {screen === 'run' && <RunScreen key={activeConfig?.id} onCompanionStart={enterCompanionRun} overlayOpen={!!question || manualOpen} ref={runControls} profile={profile} config={activeConfig} onFinish={finishRun} confirmAction={confirm} onActivityVisibilityChange={(visible) => setConfig((previous) => ({ ...previous, showActivity: visible }))} />}
       {screen === 'result' && <Result result={result} profile={profile} persisted={!user.is_anonymous} onAgain={() => navigate('setup')} />}
-      {screen === 'mypage' && user && <MyPage user={user} profile={profile} onProfile={setProfile} confirmAction={confirm} onNavigate={navigate} />}
+      {screen === 'mypage' && user && <MyPage user={user} profile={profile} onProfile={setProfile} confirmAction={confirm} onNavigate={navigate} onDeleted={() => { setUser(null); setProfile(null); setAccount({ admin: false, suspended: false }); setNotice('회원 탈퇴가 완료됐어요. 그동안 함께 달려주셔서 고마워요.'); setScreen('login') }} />}
       {screen === 'support' && user && <Support suspended={account.suspended} />}
       {screen === 'admin' && account.admin && <Admin confirmAction={confirm} />}
       </Suspense>
       </main>
+      {!['run', 'character', 'loading', 'saving'].includes(screen) && <Footer />}
     </>
   )
 }

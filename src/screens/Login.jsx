@@ -44,6 +44,7 @@ export default function Login({ onLogin, onSignUp, onHelp, confirmAction }) {
         <div className="divider"><span>가볍게 먼저 달려볼까요?</span></div>
         <button type="button" className="btn ghost block" disabled={loading} onClick={() => authenticate(true)}>익명 계정으로 시작하기 →</button>
         <p className="note">익명 러너와 기록은 체험 중에만 유지돼요.<br />새로고침하면 초기화되며 경험치는 저장되지 않아요.</p>
+        <p className="login-legal">시작하면 <a href="/terms" target="_blank" rel="noopener">이용약관</a>과 <a href="/privacy" target="_blank" rel="noopener">개인정보처리방침</a>에 동의하는 것으로 봐요.</p>
       </form>
     </div>
   )

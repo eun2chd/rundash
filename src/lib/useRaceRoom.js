@@ -32,6 +32,8 @@ export default function useRaceRoom({ userId, nickname, paused }) {
       }
       channel.on('presence', { event: 'sync' }, sync)
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'race_messages' }, ({ new: row }) => { if (alive) setMessages((previous) => mergeMessages(previous, [row])) })
+        // Moderation and retention deletes; with RLS on, the old record carries only the id.
+        .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'race_messages' }, ({ old }) => { if (alive && old?.id) setMessages((previous) => previous.filter(message => message.id !== old.id)) })
         .subscribe((status) => {
           if (!alive) return
           if (status === 'SUBSCRIBED') {

@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react'
-import { LuUsers, LuSettings, LuMessageCircle, LuHistory, LuShield } from 'react-icons/lu'
+import { LuUsers, LuSettings, LuMessageCircle, LuHistory, LuShield, LuFlag } from 'react-icons/lu'
+import { REPORT_REASONS } from '../lib/chat'
 import { api } from '../lib/api'
 import { configureSettings, DEFAULT_SETTINGS, SETTING_FIELDS } from '../lib/settings'
 import { SUPPORT_TYPES, SUPPORT_STATUS } from './Support'
 
-const TABS = [['members', '회원 관리', LuUsers], ['support', '문의 관리', LuMessageCircle], ['settings', '러닝과 경험치 설정', LuSettings], ['audit', '변경 이력', LuHistory]]
+const TABS = [['members', '회원 관리', LuUsers], ['support', '문의 관리', LuMessageCircle], ['reports', '채팅 신고', LuFlag], ['settings', '러닝과 경험치 설정', LuSettings], ['audit', '변경 이력', LuHistory]]
 const date = value => value ? new Date(value).toLocaleString('ko-KR') : '없음'
-const ACTIONS = { xp: '경험치 조정', suspend: '계정 이용 정지', restore: '계정 이용 복원', settings: '러닝 설정 변경', support_reply: '문의 답변' }
+const ACTIONS = { xp: '경험치 조정', suspend: '계정 이용 정지', restore: '계정 이용 복원', settings: '러닝 설정 변경', support_reply: '문의 답변', chat_remove: '채팅 삭제', chat_dismiss: '신고 기각', account_deleted: '회원 탈퇴' }
+const REPORT_STATUS = { open: '처리 대기', removed: '삭제함', dismissed: '기각함' }
 
 export default function Admin({ confirmAction }) {
   const [tab, setTab] = useState('members')
@@ -16,6 +18,7 @@ export default function Admin({ confirmAction }) {
   const [query, setQuery] = useState('')
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState('')
+  const [reportFilter, setReportFilter] = useState('open')
   const [page, setPage] = useState(0)
   const [refresh, setRefresh] = useState(0)
   const [selected, setSelected] = useState(null)
@@ -32,14 +35,14 @@ export default function Admin({ confirmAction }) {
   useEffect(() => {
     let live = true
     setLoading(true); setError(''); setData(null); setSelected(null)
-    const load = tab === 'members' ? api.adminMembers(search, page) : tab === 'support' ? api.adminSupport(filter, page) : tab === 'audit' ? api.adminAudit(page) : api.getSettings()
+    const load = tab === 'members' ? api.adminMembers(search, page) : tab === 'support' ? api.adminSupport(filter, page) : tab === 'reports' ? api.adminChatReports(reportFilter, page) : tab === 'audit' ? api.adminAudit(page) : api.getSettings()
     load.then(value => {
       if (!live) return
       if (tab === 'settings') { setSettings(value); setDraft(structuredClone(value.value)) }
       else setData(value)
     }).catch(err => { if (live) setError(err.message || '불러오지 못했어요.') }).finally(() => { if (live) setLoading(false) })
     return () => { live = false }
-  }, [tab, search, filter, page, refresh])
+  }, [tab, search, filter, reportFilter, page, refresh])
   const changeTab = async (next) => {
     if (busy || next === tab) return
     if ((dirty || reason || reply) && !await confirmAction({ title: '관리 메뉴를 이동할까요?', description: '저장하지 않은 변경사항은 사라져요.' })) return
@@ -64,6 +67,12 @@ export default function Admin({ confirmAction }) {
     setBusy(true); setError(''); setNotice('')
     try { await api.adminReply(selected.id, status, reply); setSelected(null); setReply(''); setNotice('문의 답변을 저장했어요.'); setRefresh(v => v + 1) } catch (err) { setError(err.message) } finally { setBusy(false) }
   }
+  const resolveReport = async (action) => {
+    if (busy) return
+    if (!await confirmAction({ title: action === 'remove' ? '메시지를 삭제할까요?' : '신고를 기각할까요?', description: action === 'remove' ? '모든 러너의 채팅방에서 메시지가 사라져요. 작성자 이용 정지는 회원 관리에서 따로 처리해 주세요.' : '메시지는 그대로 두고 신고를 종료해요.', confirmLabel: action === 'remove' ? '삭제하기' : '기각하기' })) return
+    setBusy(true); setError(''); setNotice('')
+    try { await api.adminResolveChatReport(selected.message_id, action, reason); setSelected(null); setReason(''); setNotice(action === 'remove' ? '메시지를 삭제했어요.' : '신고를 기각했어요.'); setRefresh(v => v + 1) } catch (err) { setError(err.message) } finally { setBusy(false) }
+  }
   const editLevel = (index, key, value) => setDraft(old => ({ ...old, levels: old.levels.map((row, i) => i === index ? { ...row, [key]: value } : row) }))
   useEffect(() => {
     let live = true
@@ -77,7 +86,14 @@ export default function Admin({ confirmAction }) {
       {error && <p className="error" role="alert">{error}</p>}{notice && <p className="account-notice" role="status">{notice}</p>}
       {tab === 'members' && <form className="admin-filters" onSubmit={e => { e.preventDefault(); setSearch(query); setPage(0); setRefresh(v => v + 1) }}><label className="sr-only" htmlFor="member-search">이메일 또는 닉네임 검색</label><input id="member-search" value={query} onChange={e => setQuery(e.target.value)} maxLength={100} placeholder="이메일 또는 닉네임 검색" /><button className="btn ghost" disabled={busy}>검색</button></form>}
       {tab === 'support' && <label className="field"><span>문의 상태</span><select value={filter} disabled={busy} onChange={e => { setFilter(e.target.value); setPage(0) }}><option value="">전체</option>{Object.entries(SUPPORT_STATUS).map(([key,label]) => <option key={key} value={key}>{label}</option>)}</select></label>}
+      {tab === 'reports' && <label className="field"><span>처리 상태</span><select value={reportFilter} disabled={busy} onChange={e => { setReportFilter(e.target.value); setPage(0) }}><option value="">전체</option>{Object.entries(REPORT_STATUS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>}
       {loading ? <p role="status">불러오고 있어요…</p> : <>
+      {tab === 'reports' && data && <><p className="admin-count">전체 {data.total}건</p><div className="admin-table-wrap"><table className="admin-table"><thead><tr><th scope="col">상태</th><th scope="col">작성자</th><th scope="col">메시지</th><th scope="col">사유</th><th scope="col">신고 수</th><th scope="col">최근 신고</th><th scope="col">관리</th></tr></thead><tbody>{data.items.map(item => <tr key={item.message_id} className={selected?.message_id === item.message_id ? 'selected' : ''}>
+<td>{REPORT_STATUS[item.status]}</td><td>{item.author_nickname}{item.author_suspended && ' (정지됨)'}</td><td className="report-message">{item.message}</td><td>{item.reasons.map(r => REPORT_REASONS[r] || r).join(', ')}</td><td className="numeric-cell">{item.report_count}건</td><td>{date(item.last_reported_at)}</td>
+<td><button className="btn ghost" disabled={busy} onClick={() => { setSelected(item); setReason(''); setNotice('') }}>{item.status === 'open' ? '처리하기' : '보기'}</button></td></tr>)}</tbody></table></div>{!data.items.length && <p className="account-empty">해당하는 신고가 없어요.</p>}
+      {selected && <div className="admin-editor"><h3>{selected.author_nickname}님의 메시지</h3><p className="ticket-body">{selected.message}</p><p>작성 {date(selected.message_created_at)} · {selected.message_exists ? '채팅방에 표시 중' : '삭제됨'}{selected.resolved_at && ` · 처리 ${date(selected.resolved_at)}`}</p>
+        {selected.status === 'open' ? <><label className="field"><span>처리 사유</span><input value={reason} minLength={2} maxLength={500} onChange={e => setReason(e.target.value)} disabled={busy} placeholder="운영 이력에 남길 사유" /></label><div className="settings-save"><button type="button" className="btn ghost" disabled={busy || reason.trim().length < 2} onClick={() => resolveReport('dismiss')}>신고 기각</button><button type="button" className="btn danger" disabled={busy || reason.trim().length < 2} onClick={() => resolveReport('remove')}>메시지 삭제</button></div></> : <p>이미 처리된 신고예요.</p>}
+      </div>}</>}
       {tab === 'members' && data && <><p className="admin-count">전체 {data.total}명</p><div className="admin-table-wrap member-table-wrap" role="region" aria-label="회원 목록" tabIndex={0}>
         <table className="admin-table member-table">
           <caption className="sr-only">회원 기본정보와 러닝 현황</caption>
