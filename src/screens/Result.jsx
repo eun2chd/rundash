@@ -2,16 +2,22 @@ import { useRef, useState } from 'react'
 import CharacterPreview from '../components/CharacterPreview'
 import ShareCardDialog from '../components/ShareCardDialog'
 import { fmtPace, fmtTime } from '../lib/pace'
-import { LuTrophy, LuFlag, LuShare2 } from 'react-icons/lu'
+import { LuTrophy, LuFlag, LuShare2, LuCalendarCheck } from 'react-icons/lu'
 import GrowthCard from '../components/GrowthCard'
 import { getSettings } from '../lib/settings'
 import { shareCardContent } from '../lib/shareCard'
+import { attendanceResultText } from '../lib/attendance'
+import { progressionFor } from '../lib/progression'
 
 export default function Result({ result, profile, persisted = true, onAgain }) {
   const r = result
   const characterCanvas = useRef(null)
   const [sharing, setSharing] = useState(false)
-  const growth = r.growth || { xpEarned: 0, xpBefore: 0, xpAfter: 0 }
+  const runGrowth = r.growth || { xpEarned: 0, xpBefore: 0, xpAfter: 0 }
+  const attendance = persisted ? attendanceResultText(r.attendance) : null
+  // Attendance XP lands after the run's own reward, so fold it into the totals shown here.
+  const attendanceXp = persisted ? r.attendance?.xp || 0 : 0
+  const growth = attendanceXp ? { ...runGrowth, xpAfter: runGrowth.xpAfter + attendanceXp, levelAfter: progressionFor(runGrowth.xpAfter + attendanceXp).level } : runGrowth
   const unlocked = getSettings().levels.filter((row, index, rows) => row.level > (growth.levelBefore || 1) && row.level <= (growth.levelAfter || 1) && row.boost > (rows[index - 1]?.boost || 0)).map(row => ({ level: row.level, title: '부스터 해금과 강화', description: `${row.boost}초 가속` }))
   return (
     <div className="result-screen">
@@ -22,6 +28,7 @@ export default function Result({ result, profile, persisted = true, onAgain }) {
         <div className="eyebrow">{r.completed ? 'FINISH' : 'STOPPED'}</div>
         <h2 className="result-title">{r.completed ? <><LuTrophy /> 완주했어요!</> : <><LuFlag /> 오늘은 여기까지</>}</h2>
         <div className="run-reward" role="status"><strong>{growth.reason === 'practice' ? '개발 체험 러닝' : persisted ? `+${growth.xpEarned} XP` : '익명 체험 러닝'}</strong><p>{growth.reason === 'practice' ? '배속 또는 실제 시간보다 빠른 기록은 경험치가 지급되지 않아요.' : !persisted ? '정식 계정으로 로그인하면 성장을 저장할 수 있어요.' : `거리 +${growth.distanceXp || 0} · 완주 보너스 +${growth.completionXp || 0} XP`}</p>{growth.levelAfter > growth.levelBefore && <b>LEVEL UP! Lv.{growth.levelBefore} → Lv.{growth.levelAfter}</b>}{unlocked.map((reward) => <p key={reward.level}>해금! {reward.title} · {reward.description}</p>)}</div>
+        {attendance && <div className={`attendance-result${attendanceXp ? ' on' : ''}`} role="status"><LuCalendarCheck /><div><strong>{attendance.title}</strong><p>{attendance.detail}</p></div></div>}
         <GrowthCard xp={growth.xpAfter} anonymous={!persisted} />
         <div className="result-big">
           <div><span>거리</span><b>{r.distanceKm.toFixed(2)}<small>km</small></b></div>
@@ -43,7 +50,7 @@ export default function Result({ result, profile, persisted = true, onAgain }) {
         <p className="note">{persisted ? '러닝 기록이 내 계정에 저장됐어요.' : '익명 체험 기록은 저장되지 않아요. 새로고침하면 초기화돼요.'}</p>
         <button className="btn primary block" onClick={onAgain}>다시 달리기</button>
         <button className="btn ghost block result-share" onClick={() => setSharing(true)}><LuShare2 />기록 공유하기</button>
-        {sharing && <ShareCardDialog content={shareCardContent({ result: r, profile, persisted })} getCharacter={() => characterCanvas.current} onClose={() => setSharing(false)} />}
+        {sharing && <ShareCardDialog content={shareCardContent({ result: { ...r, growth }, profile, persisted })} getCharacter={() => characterCanvas.current} onClose={() => setSharing(false)} />}
       </div>
     </div>
   )

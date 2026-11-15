@@ -3,6 +3,7 @@ import CharacterPreview from '../components/CharacterPreview'
 import { ACTIVITIES, ACTIVITY_GROUPS, getActivity } from '../lib/activities'
 import ActivityBubble from '../components/ActivityBubble'
 import GrowthCard from '../components/GrowthCard'
+import AttendanceCard from '../components/AttendanceCard'
 import { INTENSITIES, experienceFor, trainingFor } from '../lib/progression'
 import CoursePreview from '../components/CoursePreview'
 import { getSettings } from '../lib/settings'
@@ -39,6 +40,7 @@ export default function RunSetup({ profile, config, xp = 0, anonymous = false, s
           <div className="eyebrow">STEP 2</div>
           <h2>오늘의 러닝</h2>
           <GrowthCard xp={xp} anonymous={anonymous} />
+          <AttendanceCard anonymous={anonymous} />
 
           <div className="field">
             <span>{anonymous ? '기본 페이스' : '러닝 강도'}</span>

@@ -96,7 +96,8 @@ export const api = {
     const { user } = unwrap(await getSupabase().auth.getUser())
     if (user.is_anonymous) throw new Error('기록을 저장하려면 정식 계정으로 로그인해 주세요.')
     const data = unwrap(await getSupabase().rpc('finish_training_run', { p_run_id: run.id, p_details: run }))
-    return { run: runFromRow(data.run), progression: data.progression }
+    return { run: runFromRow(data.run), progression: data.progression, attendance: data.attendance || null }
   },
+  async attendanceStatus() { return unwrap(await getSupabase().rpc('attendance_status')) },
   async listRuns(userId) { return unwrap(await getSupabase().from('runs').select('*').eq('user_id', userId).order('created_at', { ascending: false })).map(runFromRow) },
 }

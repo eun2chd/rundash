@@ -202,7 +202,7 @@ export default function App() {
         setResult({ ...run, growth: { xpEarned: 0, reason: 'anonymous', xpBefore: 0, xpAfter: 0 } })
       } else {
         const saved = await api.saveRun(run)
-        setResult(saved.run)
+        setResult({ ...saved.run, attendance: saved.attendance })
         setProgression(saved.progression)
       }
       if (destination === 'logout') await logout()
