@@ -16,10 +16,20 @@ import { configureSettings, getSettings } from './lib/settings'
 import { readLocalCheckpoint, clearLocalCheckpoint, validCheckpoint } from './lib/runClock'
 
 
+const loadCharacterCreate = () => import('./screens/CharacterCreate')
+const loadRunSetup = () => import('./screens/RunSetup')
+const loadRunScreen = () => import('./screens/RunScreen')
 const SignUp = lazy(() => import('./screens/SignUp'))
-const CharacterCreate = lazy(() => import('./screens/CharacterCreate'))
-const RunSetup = lazy(() => import('./screens/RunSetup'))
-const RunScreen = lazy(() => import('./screens/RunScreen'))
+const CharacterCreate = lazy(loadCharacterCreate)
+const RunSetup = lazy(loadRunSetup)
+const RunScreen = lazy(loadRunScreen)
+
+// Warm the three.js screens while the visitor reads the login page, unless they asked to save data.
+function prefetchRunnerScreens() {
+  if (navigator.connection?.saveData) return
+  const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 1500))
+  idle(() => { for (const load of [loadRunSetup, loadCharacterCreate, loadRunScreen]) load().catch(() => {}) }, { timeout: 4000 })
+}
 const Result = lazy(() => import('./screens/Result'))
 const MyPage = lazy(() => import('./screens/MyPage'))
 const Admin = lazy(() => import('./screens/Admin'))
@@ -45,6 +55,7 @@ export default function App() {
   const [result, setResult] = useState(null)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
+  const [pending, setPending] = useState('')
   const [pendingRun, setPendingRun] = useState(null)
   const [saving, setSaving] = useState(false)
   const recovery = useRef(recoveryRequested)
@@ -65,31 +76,39 @@ export default function App() {
   }
   const closeManual = () => { setManualOpen(false); manualResume.current?.(); manualResume.current = null }
 
-  const enter = async (u) => {
-    const [settings, status] = await Promise.all([api.getSettings(), api.accountStatus()])
+  const withLoading = async (text, task) => {
+    setPending(text)
+    try { return await task() } finally { setPending('') }
+  }
+
+  const enter = (u) => withLoading('러너 정보를 불러오고 있어요.', async () => {
+    const [settings, status, p] = await Promise.all([api.getSettings(), api.accountStatus(), u.is_anonymous ? null : api.getProfile(u.id)])
     configureSettings(settings.value)
     setNotice('')
     setAccount(status)
     setUser(u)
-    const p = u.is_anonymous ? null : await api.getProfile(u.id)
     setProfile(p)
     setProgression({ xp: 0 })
-    if (p && !u.is_anonymous) {
-      try { setProgression(await api.getProgression(u.id)) }
-      catch { setError('성장 정보를 불러오지 못했어요. 러닝 시작 시 다시 확인할게요.') }
-    }
     setResumeOffer(null)
-    if (p && !u.is_anonymous && !status.suspended) {
-      try {
-        const saved = await api.loadCheckpoint()
-        const local = readLocalCheckpoint(u.id)
-        const payloads = [local, saved?.payload].filter(value => validCheckpoint(value, saved?.session.id))
-        payloads.sort((a,b) => b.savedAt - a.savedAt)
-        if (saved?.session) setResumeOffer({ payload: payloads[0] || null, session: saved.session })
-      } catch { /* Existing deployments can still log in before the new migration. */ }
+    const member = p && !u.is_anonymous
+    // Growth and the resumable run are independent, so load them together.
+    const [growth, saved] = await Promise.allSettled([
+      member ? api.getProgression(u.id) : null,
+      member && !status.suspended ? api.loadCheckpoint() : null,
+    ])
+    if (member) {
+      if (growth.status === 'fulfilled') setProgression(growth.value)
+      else setError('성장 정보를 불러오지 못했어요. 러닝 시작 시 다시 확인할게요.')
+    }
+    // A rejected checkpoint load is ignored: older deployments can still log in before the migration.
+    if (saved.status === 'fulfilled' && saved.value?.session) {
+      const local = readLocalCheckpoint(u.id)
+      const payloads = [local, saved.value.payload].filter(value => validCheckpoint(value, saved.value.session.id))
+      payloads.sort((a,b) => b.savedAt - a.savedAt)
+      setResumeOffer({ payload: payloads[0] || null, session: saved.value.session })
     }
     setScreen(status.suspended ? 'support' : p ? 'setup' : 'character')
-  }
+  })
 
   useEffect(() => {
     let mounted = true
@@ -133,6 +152,8 @@ export default function App() {
     return () => document.body.classList.remove('runner-studio-open')
   }, [screen])
 
+  useEffect(prefetchRunnerScreens, [])
+
   useEffect(() => {
     const beforeUnload = (event) => { event.preventDefault(); event.returnValue = '' }
     window.addEventListener('beforeunload', beforeUnload)
@@ -148,13 +169,13 @@ export default function App() {
   }
 
   const navigate = async (next) => {
-    if (next === screen || starting || saving) return
+    if (next === screen || starting || saving || pending) return
     if (next === 'admin' && !account.admin) return
     if (account.suspended && !['support', 'mypage', 'login', 'signup'].includes(next)) { setError('이용이 제한된 계정이에요. 문의하기로 연락해 주세요.'); return }
     if (screen === 'run') return runControls.current?.requestExit(next)
     if (!await confirm({ title: `${SCREEN_NAMES[next] || '다른 화면'} 화면으로 이동할까요?`, description: screen === 'character' ? '저장하지 않은 러너 변경사항은 사라져요.' : '입력 중인 내용은 이동하면 초기화될 수 있어요.' })) return
     try {
-      if (next === 'setup') configureSettings((await api.getSettings()).value)
+      if (next === 'setup') await withLoading('러닝 설정을 불러오고 있어요.', async () => configureSettings((await api.getSettings()).value))
       setError(''); setScreen(next)
     } catch { setError('러닝 설정을 불러오지 못했어요. 다시 시도해 주세요.') }
   }
@@ -162,7 +183,7 @@ export default function App() {
   const requestLogout = async () => {
     if (screen === 'run') return runControls.current?.requestExit('logout')
     if (!await confirm({ title: '로그아웃할까요?', description: user?.is_anonymous ? '익명 러너와 체험 기록은 사라져요.' : '로그인 화면으로 돌아갑니다. 저장하지 않은 변경사항은 사라져요.', confirmLabel: '로그아웃' })) return
-    try { await logout() } catch (err) { setError(err.message) }
+    try { await withLoading('로그아웃하고 있어요.', logout) } catch (err) { setError(err.message) }
   }
 
   const requestRecoveryNavigation = async (next) => {
@@ -200,7 +221,8 @@ export default function App() {
       if (!await confirm({ title: '러닝을 시작할까요?', description: `${config.distanceKm}km 러닝을 시작합니다. 러닝 중 나가려면 종료 확인이 필요해요.`, confirmLabel: '달리기 시작', cancelLabel: '설정 더 보기' })) return
       startId.current ||= crypto.randomUUID()
       if (user.is_anonymous && config.distanceKm > getSettings().anonymousMaxKm) throw new Error(`익명 러너는 최대 ${getSettings().anonymousMaxKm}km까지 달릴 수 있어요.`)
-      const ticket = user.is_anonymous ? { id: startId.current, xp: 0 } : await api.startRun({ id: startId.current, ...config })
+      // Load the 3D run screen alongside the server ticket so only one loading screen shows.
+      const ticket = await withLoading('러닝 코스를 준비하고 있어요.', async () => (await Promise.all([user.is_anonymous ? { id: startId.current, xp: 0 } : api.startRun({ id: startId.current, ...config }), loadRunScreen()]))[0])
       if (ticket.settings) configureSettings(ticket.settings)
       setProgression((previous) => ({ ...previous, xp: ticket.xp }))
       setActiveConfig({ ...config, distanceKm: ticket.distanceKm ?? config.distanceKm, ...trainingFor(ticket.xp, ticket.intensity || config.intensity, user.is_anonymous), id: ticket.id, anonymous: user.is_anonymous })
@@ -226,7 +248,7 @@ export default function App() {
     setStarting(true)
     try {
       if (!await confirm({ title: '진행 중이던 러닝을 이어갈까요?', description: '달리던 러너는 마지막 저장 시점부터 경과 시간을 반영하고, 일시정지 중이었다면 그대로 복원해요.' })) return
-      const fresh = await api.loadCheckpoint()
+      const fresh = await withLoading('달리던 러닝을 불러오고 있어요.', async () => (await Promise.all([api.loadCheckpoint(), loadRunScreen()]))[0])
       if (fresh?.session.id !== resumeOffer.session.id) throw new Error('이미 종료되거나 다른 곳에서 새로 시작한 러닝이에요.')
       const session = fresh.session
       configureSettings(session.rules)
@@ -238,7 +260,8 @@ export default function App() {
 
   return (
     <>
-      <Header user={user} profile={profile} admin={account.admin} screen={starting ? 'loading' : screen} onNavigate={navigate} onLogout={requestLogout} onHelp={openManual} />
+      <Header user={user} profile={profile} admin={account.admin} screen={starting || pending ? 'loading' : screen} onNavigate={navigate} onLogout={requestLogout} onHelp={openManual} />
+      {pending && screen !== 'loading' && <Loading overlay text={pending} />}
       {question && <ConfirmDialog {...question} onAnswer={answer} />}
       {manualOpen && <ManualDialog onClose={closeManual} />}
       <main className="app-content">

@@ -6,6 +6,10 @@
     <meta name="theme-color" content="#24251f" />
     <title>Run dash 런대시 | 캐릭터 러닝 게임, 같이 달리자</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <!-- Open connections early: font CDN, Supabase (session check on boot) and Turnstile. -->
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+    <link rel="preconnect" href="https://yjlebedgsktdxacpasgt.supabase.co" crossorigin />
+    <link rel="preconnect" href="https://challenges.cloudflare.com" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" />
     <meta name="description" content="같이 뛸 사람을 찾고 있나요? Run dash(런대시)는 나만의 3D 캐릭터로 온라인에서 함께 달리는 러닝 게임입니다. 일하거나 쉬는 동안 캐릭터를 달리게 하고, 러닝 거리와 페이스를 정해 경험치와 레벨을 키워보세요." />
     <link rel="canonical" href="https://www.rundash.run/" />
@@ -36,12 +40,18 @@
       .seo-intro { max-width: 720px; margin: 0 auto; padding: 48px 16px; font-family: 'Pretendard Variable', Pretendard, sans-serif; color: #24251f; line-height: 1.7; }
       .seo-intro h1 { font-size: 28px; margin: 0 0 12px; }
       .seo-intro h2 { font-size: 18px; margin: 28px 0 8px; }
+      body { margin: 0; background: #efebe3; }
+      .boot-loader { display: flex; align-items: center; gap: 12px; margin-bottom: 28px; font-size: 14px; font-weight: 600; color: #48522c; }
+      .boot-loader span { position: relative; width: 120px; height: 3px; background: #ddd7c9; border-radius: 3px; overflow: hidden; }
+      .boot-loader span::after { content: ''; position: absolute; inset: 0 auto 0 0; width: 45%; background: #5f6b3c; animation: boot-slide 1.2s ease-in-out infinite; }
+      @keyframes boot-slide { from { transform: translateX(-110%); } to { transform: translateX(240%); } }
     </style>
   </head>
   <body>
     <!-- React replaces this intro on mount; it gives crawlers and no-JS visitors real text. -->
     <div id="root">
       <main class="seo-intro">
+        <p class="boot-loader" role="status"><span aria-hidden="true"></span>러너를 깨우고 있어요</p>
         <h1>Run dash 런대시 · 나만의 캐릭터와 같이 달리는 러닝 게임</h1>
         <p>같이 뛸 사람을 찾고 있나요? Run dash(런대시)는 나만의 3D 캐릭터를 만들어 온라인에서 다른 러너들과 함께 달리는 웹 러닝 게임입니다. 설치 없이 브라우저에서 바로 시작할 수 있어요.</p>
         <h2>일하는 동안에도 내 러너는 달리는 중</h2>
@@ -52,6 +62,7 @@
         <p>박자에 맞춰 누르는 리듬 미니게임으로 콤보와 부스트를 얻고, 보급소에서 물과 에너지 젤로 체력을 회복하세요. 맑음, 비, 폭염, 폭설처럼 바뀌는 코스 날씨가 러닝에 영향을 줍니다.</p>
         <h2>러너 꾸미기</h2>
         <p>모자, 상의, 하의, 러닝 조끼, 장갑, 러닝화와 색상을 골라 나만의 러너를 만들어 보세요. 회원가입 없이 익명으로 먼저 체험할 수도 있어요.</p>
+        <p><a href="/guide">Run dash 게임 가이드 보기</a></p>
       </main>
     </div>
     <script type="module" src="/src/main.jsx"></script>
