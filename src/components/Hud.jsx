@@ -113,6 +113,8 @@ export default function Hud({
         {showMap && <div className="panel hud-left-map" aria-label="러닝 미니맵"><Minimap me={{ dist: myVisualPose?.distance ?? t.dist, lane: myVisualPose?.lane || 0, color: profile.color }} others={[...realPeers, ...ghosts.map(g => ({ id: g.id, nickname: g.nickname, dist: getGhostDist(g), color: g.color, lane: g.lane }))]} stations={stations.map(x => ({ ...x, closed: closedStations.includes(x.id) }))} /></div>}
         <ScoreSummary stats={stats} />
         {activeStation && <SupplyPanel station={activeStation} items={activeItems} distance={t.dist} resting={t.resting} onCollect={onCollect} />}
+        <button type="button" className="chat-toggle" aria-expanded={showChat} onClick={() => setShowChat((visible) => !visible)}><LuMessageCircle /> {showChat ? '채팅 숨기기' : '채팅 보이기'}</button>
+        {showChat && <RunnerChat room={room} onHide={() => setShowChat(false)} />}
       </div>
 
       {/* 상단 중앙: 체력바 + 기록 */}
@@ -171,13 +173,11 @@ export default function Hud({
         </div>
       </div>
 
-      {/* 우상단: 접속 인원과 채팅방 */}
+      {/* 우상단: 음악, 날씨, 접속 인원 */}
       <div className="hud-tr">
         <RunningMusic />
         <WeatherDashboard weather={t.weather} timestamp={t.weatherTimeMs} />
         <RoomPresence room={room} />
-        <button type="button" className="chat-toggle" aria-expanded={showChat} onClick={() => setShowChat((visible) => !visible)}><LuMessageCircle /> {showChat ? '채팅 숨기기' : '채팅 보이기'}</button>
-        {showChat && <RunnerChat room={room} onHide={() => setShowChat(false)} />}
       </div>
 
       {import.meta.env.DEV && <DeveloperDebug timeScale={timeScale} onTimeScale={onTimeScale} practice={t.practice} level={config.level} stamina={t.stamina} maxStamina={s.maxStamina} />}
