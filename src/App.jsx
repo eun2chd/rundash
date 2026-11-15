@@ -156,6 +156,13 @@ export default function App() {
 
   useEffect(prefetchRunnerScreens, [])
 
+  // Screens share one URL, so tell Google Tag Manager about each screen as a virtual page.
+  // Only the screen name is sent: no account, email or nickname.
+  useEffect(() => {
+    if (['loading', 'saving'].includes(screen)) return
+    window.dataLayer?.push({ event: 'rundash_screen_view', screen_name: screen, page_path: `/app/${screen}`, page_title: SCREEN_NAMES[screen] || screen })
+  }, [screen])
+
   // Only warn on leave where progress could be lost: an active run, a pending save or an unsaved runner.
   const guardLeave = ['run', 'saving', 'character'].includes(screen)
   useEffect(() => {
