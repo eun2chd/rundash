@@ -156,11 +156,14 @@ export default function App() {
 
   useEffect(prefetchRunnerScreens, [])
 
+  // Only warn on leave where progress could be lost: an active run, a pending save or an unsaved runner.
+  const guardLeave = ['run', 'saving', 'character'].includes(screen)
   useEffect(() => {
+    if (!guardLeave) return
     const beforeUnload = (event) => { event.preventDefault(); event.returnValue = '' }
     window.addEventListener('beforeunload', beforeUnload)
     return () => window.removeEventListener('beforeunload', beforeUnload)
-  }, [])
+  }, [guardLeave])
 
   const logout = async () => {
     await api.signOut()

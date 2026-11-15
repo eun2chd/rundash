@@ -7,3 +7,4 @@ dist
 db
 .vercel
 .tmp/
+vite.config.js.timestamp-*
