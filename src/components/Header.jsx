@@ -10,6 +10,8 @@ export default function Header({ user, profile, admin = false, screen, onNavigat
       {user ? <>
         {item('setup', '러닝', !profile)}
         {item('character', '캐릭터')}
+        {item('ranking', '랭킹')}
+        {!user.is_anonymous && item('attendance', '출석')}
         {item('support', '문의하기')}
         {admin && item('admin', '관리자 페이지')}
         <button type="button" className="header-user" disabled={busy} aria-label="마이페이지 열기" aria-current={screen === 'mypage' ? 'page' : undefined} onClick={() => onNavigate('mypage')}>{profile?.avatar_image && <img src={profile.avatar_image} alt="" />}{profile?.nickname || user.user_metadata?.nickname || (user.is_anonymous ? '익명 러너' : '러너')}</button>

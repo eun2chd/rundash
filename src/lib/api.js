@@ -99,5 +99,7 @@ export const api = {
     return { run: runFromRow(data.run), progression: data.progression, attendance: data.attendance || null }
   },
   async attendanceStatus() { return unwrap(await getSupabase().rpc('attendance_status')) },
+  async attendanceMonth(year, month) { return unwrap(await getSupabase().rpc('attendance_month', { p_year: year, p_month: month })) },
+  async weeklyRanking(offset = 0) { return unwrap(await getSupabase().rpc('weekly_ranking', { p_offset: offset })) },
   async listRuns(userId) { return unwrap(await getSupabase().from('runs').select('*').eq('user_id', userId).order('created_at', { ascending: false })).map(runFromRow) },
 }

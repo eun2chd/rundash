@@ -6,7 +6,7 @@ import { attendanceSummary } from '../lib/attendance'
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
 
 // Member-only daily check-in card. Hidden when the attendance migration is missing.
-export default function AttendanceCard({ anonymous = false }) {
+export default function AttendanceCard({ anonymous = false, onOpenCalendar }) {
   const [status, setStatus] = useState(null)
   useEffect(() => {
     if (anonymous) return
@@ -27,5 +27,6 @@ export default function AttendanceCard({ anonymous = false }) {
       </li>)}
     </ol>
     <p className="attendance-message">{summary.message}</p>
+    {onOpenCalendar && <button type="button" className="link attendance-calendar-link" onClick={onOpenCalendar}>출석 달력 보기 →</button>}
   </section>
 }

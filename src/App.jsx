@@ -33,8 +33,10 @@ function prefetchRunnerScreens() {
 const Result = lazy(() => import('./screens/Result'))
 const MyPage = lazy(() => import('./screens/MyPage'))
 const Admin = lazy(() => import('./screens/Admin'))
+const Ranking = lazy(() => import('./screens/Ranking'))
+const Attendance = lazy(() => import('./screens/Attendance'))
 
-const SCREEN_NAMES = { admin: '관리자', support: '문의하기', mypage: '마이페이지', login: '로그인', signup: '회원가입', character: '러너 만들기', setup: '러닝 설정', 'forgot-password': '비밀번호 찾기', 'verify-email': '이메일 재인증', result: '러닝 결과' }
+const SCREEN_NAMES = { admin: '관리자', ranking: '주간 랭킹', attendance: '출석 달력', support: '문의하기', mypage: '마이페이지', login: '로그인', signup: '회원가입', character: '러너 만들기', setup: '러닝 설정', 'forgot-password': '비밀번호 찾기', 'verify-email': '이메일 재인증', result: '러닝 결과' }
 
 const callbackHash = new URLSearchParams(window.location.hash.slice(1))
 const recoveryRequested = new URLSearchParams(window.location.search).get('auth') === 'reset-password' || callbackHash.get('type') === 'recovery'
@@ -171,6 +173,7 @@ export default function App() {
   const navigate = async (next) => {
     if (next === screen || starting || saving || pending) return
     if (next === 'admin' && !account.admin) return
+    if (next === 'attendance' && (!user || user.is_anonymous)) return
     if (account.suspended && !['support', 'mypage', 'login', 'signup'].includes(next)) { setError('이용이 제한된 계정이에요. 문의하기로 연락해 주세요.'); return }
     if (screen === 'run') return runControls.current?.requestExit(next)
     if (!await confirm({ title: `${SCREEN_NAMES[next] || '다른 화면'} 화면으로 이동할까요?`, description: screen === 'character' ? '저장하지 않은 러너 변경사항은 사라져요.' : '입력 중인 내용은 이동하면 초기화될 수 있어요.' })) return
@@ -287,6 +290,7 @@ export default function App() {
           starting={starting}
           onChange={setConfig}
           onStart={startRun}
+          onOpenAttendance={() => navigate('attendance')}
         />
       )}
       {screen === 'run' && <RunScreen key={activeConfig?.id} onCompanionStart={enterCompanionRun} overlayOpen={!!question || manualOpen} ref={runControls} profile={profile} config={activeConfig} onFinish={finishRun} confirmAction={confirm} onActivityVisibilityChange={(visible) => setConfig((previous) => ({ ...previous, showActivity: visible }))} />}
@@ -294,6 +298,8 @@ export default function App() {
       {screen === 'mypage' && user && <MyPage user={user} profile={profile} onProfile={setProfile} confirmAction={confirm} onNavigate={navigate} onDeleted={() => { setUser(null); setProfile(null); setAccount({ admin: false, suspended: false }); setNotice('회원 탈퇴가 완료됐어요. 그동안 함께 달려주셔서 고마워요.'); setScreen('login') }} />}
       {screen === 'support' && user && <Support suspended={account.suspended} />}
       {screen === 'admin' && account.admin && <Admin confirmAction={confirm} />}
+      {screen === 'ranking' && user && <Ranking anonymous={user.is_anonymous} onRun={() => navigate(profile ? 'setup' : 'character')} />}
+      {screen === 'attendance' && user && !user.is_anonymous && <Attendance onRun={() => navigate('setup')} />}
       </Suspense>
       </main>
       {!['run', 'character', 'loading', 'saving'].includes(screen) && <Footer />}

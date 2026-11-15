@@ -15,7 +15,7 @@ const DIST_LABEL = { 21.0975: '하프', 42.195: '풀' }
 
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v))
 
-export default function RunSetup({ profile, config, xp = 0, anonymous = false, starting = false, onChange, onStart }) {
+export default function RunSetup({ profile, config, xp = 0, anonymous = false, starting = false, onChange, onStart, onOpenAttendance }) {
   const [activityGroup, setActivityGroup] = useState(() => getActivity(config.activity).group)
   const { distanceKm } = config
   const maxDistance = anonymous ? getSettings().anonymousMaxKm : getSettings().maxDistanceKm
@@ -40,7 +40,7 @@ export default function RunSetup({ profile, config, xp = 0, anonymous = false, s
           <div className="eyebrow">STEP 2</div>
           <h2>오늘의 러닝</h2>
           <GrowthCard xp={xp} anonymous={anonymous} />
-          <AttendanceCard anonymous={anonymous} />
+          <AttendanceCard anonymous={anonymous} onOpenCalendar={onOpenAttendance} />
 
           <div className="field">
             <span>{anonymous ? '기본 페이스' : '러닝 강도'}</span>
