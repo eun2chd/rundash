@@ -82,6 +82,20 @@ export default function Runner({
     bob.current.rotation.x = mix(0.1 + tired * 0.18, 0.28)
     head.current.rotation.x = mix(tired * 0.2 + breathe, 0.4 + breathe)
 
+    // Finish celebration: hop in place with both arms up and legs tucked mid-air.
+    if (act?.celebrate) {
+      const t = performance.now() / 1000
+      const hop = Math.abs(Math.sin(t * 5.2))
+      bob.current.position.y = hop * 0.55
+      bob.current.rotation.x = -0.08
+      head.current.rotation.x = -0.25
+      lArm.current.rotation.x = rArm.current.rotation.x = -2.9 + Math.sin(t * 10.4) * 0.25
+      lArm.current.rotation.z = 0.35; rArm.current.rotation.z = -0.35
+      lLeg.current.rotation.x = -0.5 * hop; rLeg.current.rotation.x = 0.5 * hop
+    } else {
+      lArm.current.rotation.z = 0; rArm.current.rotation.z = 0
+    }
+
     // 멀리 있는 러너의 닉네임은 흐리게
     if (tag.current) {
       root.current.getWorldPosition(camPos)

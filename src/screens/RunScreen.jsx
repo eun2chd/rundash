@@ -27,6 +27,8 @@ import { formationOffset } from '../lib/formation'
 import { weatherAt } from '../lib/weather'
 import { takeNewInvites } from '../lib/invites'
 import WeatherEffects from '../three/WeatherEffects'
+import FinishLine, { FINISH_VISIBLE_M } from '../three/FinishLine'
+import FinishCelebration from '../components/FinishCelebration'
 import RhythmSpeedEffects from '../components/RhythmSpeedEffects'
 
 
@@ -36,7 +38,7 @@ function SimDriver({ tick }) {
   return null
 }
 
-const Scene = memo(function Scene({ sim, rhythm, profile, activity, ghosts, getMyDist, getGhostDist, getMyAction, items, stations, closedStations, biome, cheers, onCollect, tick, peers, getPeerDist, cameraDistance, getMyVisualDist, myLane, weather, showActivity }) {
+const Scene = memo(function Scene({ sim, rhythm, finishDistance, profile, activity, ghosts, getMyDist, getGhostDist, getMyAction, items, stations, closedStations, biome, cheers, onCollect, tick, peers, getPeerDist, cameraDistance, getMyVisualDist, myLane, weather, showActivity }) {
   return (
     <>
       <SimDriver tick={tick} />
@@ -71,6 +73,7 @@ const Scene = memo(function Scene({ sim, rhythm, profile, activity, ghosts, getM
         />
       ))}
       {peers.map(peer => <Runner key={peer.id} getDistance={() => getPeerDist(peer)} lane={peer.paired ? formationOffset(peer.slot).lane : -1.4} color={peer.color} skin={peer.skin} hair={peer.hair} outfit={peer.outfit} nickname={peer.nickname} activity={showActivity ? peer.activity : undefined} getAction={() => ({ kneel: false, tired: 0, stopped: peer.paused })} />)}
+      <FinishLine distance={finishDistance} getMyDist={getMyDist} />
       {stations.map((st) => (
         <AidStation key={st.id} station={st} getMyDist={getMyDist} closed={closedStations.includes(st.id)} />
       ))}
@@ -120,9 +123,10 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
   }, config.resume)
   const getMyDist = useCallback(() => sim.current.dist, [])
   const getGhostDist = useCallback((g) => g.start + (sim.current.elapsed * 1000) / g.paceSec, [])
-  const getMyAction = useCallback(() => ({ kneel: sim.current.resting, tired: tiredFor(sim.current.stamina, sim.current.maxStamina), boosting: sim.current.boostLeft > 0 || sim.current.rhythmBoostLeft > 0, rhythmBoosting: sim.current.rhythmBoostLeft > 0 }), [])
+  const getMyAction = useCallback(() => ({ celebrate: sim.current.finished, kneel: sim.current.resting, tired: tiredFor(sim.current.stamina, sim.current.maxStamina), boosting: sim.current.boostLeft > 0 || sim.current.rhythmBoostLeft > 0, rhythmBoosting: sim.current.rhythmBoostLeft > 0 }), [])
 
   const [ready, setReady] = useState(false)
+  const [celebrating, setCelebrating] = useState(false)
   const [items, setItems] = useState(course.items)
   const itemsRef = useRef(items)
   itemsRef.current = items
@@ -299,6 +303,8 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
 
   const requestExit = async (destination = 'result') => {
     tick()
+    // A finished run is already complete: leaving just saves it, no confirmation needed.
+    if (sim.current.finished && !finishedRef.current) return finish(true, destination)
     if (finishedRef.current || sim.current.finished || exitPending.current || !ready) return
     exitPending.current = true
     const wasPaused = sim.current.paused
@@ -458,6 +464,10 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
   loopRef.current = () => {
     const s = sim.current
     const my = s.dist
+    if (!flags.current.finishNear && !s.finished && totalM > FINISH_VISIBLE_M * 2 && totalM - my <= FINISH_VISIBLE_M) {
+      flags.current.finishNear = true
+      toast(`결승선이 보여요! ${Math.round(totalM - my)}m 남았어요`, 'km', LuFlag)
+    }
     const currentWeather = weatherAt(s.weatherTimeMs)
     if (currentWeather.epoch !== weatherEpoch.current) {
       weatherEpoch.current = currentWeather.epoch
@@ -523,7 +533,8 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
       }
     }
 
-    if (s.finished) finish(true)
+    // Celebrate first; results open when the runner chooses (or from any menu).
+    if (s.finished && !finishedRef.current) setCelebrating(true)
   }
   useEffect(() => {
     const id = setInterval(() => loopRef.current(), 250)
@@ -550,6 +561,7 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
           getMyDist={getMyDist}
           getGhostDist={getGhostDist}
           getMyAction={getMyAction}
+          finishDistance={totalM}
           items={items}
           stations={stations}
           closedStations={closedStations}
@@ -559,6 +571,7 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
         />
       </Canvas>
       {ready && <RhythmSpeedEffects sim={sim} />}
+      {celebrating && <FinishCelebration distanceKm={sim.current.dist / 1000} elapsedSec={sim.current.elapsed} onResults={() => finish(true)} />}
 
       {ready ? (
         <Hud
