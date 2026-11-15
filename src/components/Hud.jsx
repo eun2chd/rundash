@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import {
-  LuMusic, LuMegaphone, LuHand, LuPause, LuPlay, LuLogOut, LuMap,
-  LuHeartPulse, LuDroplet, LuBatteryLow, LuGauge, LuZap, LuCloud, LuCloudOff, LuMessageCircle, LuUsers,
+  LuMusic, LuMegaphone, LuHand, LuPause, LuPlay, LuLogOut,
+  LuHeartPulse, LuDroplet, LuBatteryLow, LuGauge, LuZap, LuCloud, LuLayoutDashboard,
 } from 'react-icons/lu'
 import { fmtTime, fmtPace } from '../lib/pace'
 import { STAMINA, staminaState } from '../lib/stamina'
@@ -21,16 +21,39 @@ import ConfirmDialog from './ConfirmDialog'
 import GroupRoster from './GroupRoster'
 import WeatherDashboard from './WeatherDashboard'
 import { weatherAt } from '../lib/weather'
+import { ACTIVITY_GROUPS } from '../lib/activities'
+import HudPanelManager, { HUD_PANELS } from './HudPanelManager'
+
+function savedPanels() {
+  try { return JSON.parse(localStorage.getItem('rundash:hud-panels') || '{}') || {} } catch { return {} }
+}
 
 export default function Hud({
   sim, getMyDist, getGhostDist, ghosts, nearestGhost, profile, config, totalM, biome,
   stats, items, stations, closedStations, rhythm, judge, cadence, toasts, paused, timeScale,
   onTimeScale, onPause, onQuit, onBeat, onCheer, onCollect, onCollectNearest, onBoost,
-  room, showActivity, onToggleActivity, realPeers = [], myVisualPose, social, confirmAction, checkpointError, locating, onLocateFriend, onReturnToRunner, showPauseDialog = true, friendPanelRequest, canPause = true, onAcceptInvite,
+  room, showActivity, onToggleActivity, activity, onActivityChange, realPeers = [], myVisualPose, social, confirmAction, checkpointError, locating, onLocateFriend, onReturnToRunner, showPauseDialog = true, friendPanelRequest, canPause = true, onAcceptInvite,
 }) {
   const [t, setT] = useState(() => snapshot())
-  const [showMap, setShowMap] = useState(false)
-  const [showChat, setShowChat] = useState(() => window.innerWidth > 760)
+  const [panels, setPanels] = useState(savedPanels)
+  const [showMap, setShowMap] = useState(() => savedPanels().map ?? false)
+  const [showChat, setShowChat] = useState(() => savedPanels().chat ?? window.innerWidth > 760)
+  const [managePanels, setManagePanels] = useState(false)
+  const visible = id => id === 'cloud' ? showActivity : id === 'map' ? showMap : id === 'chat' ? showChat : panels[id] !== false
+  const togglePanel = id => {
+    if (id === 'cloud') onToggleActivity()
+    else if (id === 'map') setShowMap(value => !value)
+    else if (id === 'chat') setShowChat(value => !value)
+    else setPanels(previous => ({ ...previous, [id]: previous[id] === false }))
+  }
+  const setAllPanels = value => {
+    setPanels(Object.fromEntries(HUD_PANELS.map(([id]) => [id, value])))
+    setShowMap(value); setShowChat(value)
+    if (showActivity !== value) onToggleActivity()
+  }
+  useEffect(() => {
+    try { localStorage.setItem('rundash:hud-panels', JSON.stringify({ ...panels, map: showMap, chat: showChat })) } catch { /* Keep controls usable when storage is unavailable. */ }
+  }, [panels, showMap, showChat])
 
   function snapshot() {
     const s = sim.current
@@ -82,20 +105,20 @@ export default function Hud({
   const medalNear = items.some((i) => !i.stationId && i.status === 'pending' && i.dist - t.dist < 60 && i.dist - t.dist > -4)
 
   return (
-    <div className="hud">
+    <div className={`hud ${HUD_PANELS.map(([id]) => !visible(id) ? `hud-hide-${id}` : panels[id] === true ? `hud-show-${id}` : '').join(' ')}`}>
       {(stPct < 25 || t.resting) && <div className={`vignette ${t.resting ? 'strong' : ''}`} />}
 
       {/* 좌상단 */}
       <div className="hud-tl">
         <div className="pill">
           <button className="icon-btn" title="종료" onClick={onQuit}><LuLogOut /></button>
-          <button className={`icon-btn ${showMap ? 'on' : ''}`} title="미니맵" onClick={() => setShowMap((v) => !v)}><LuMap /></button>
-          <button className={`icon-btn ${showActivity ? 'on' : ''}`} title={showActivity ? '구름 말풍선 숨기기' : '구름 말풍선 보이기'} aria-label={showActivity ? '구름 말풍선 숨기기' : '구름 말풍선 보이기'} aria-pressed={showActivity} onClick={onToggleActivity}>{showActivity ? <LuCloud /> : <LuCloudOff />}</button>
+          <button type="button" className={`hud-manager-toggle ${managePanels ? 'on' : ''}`} title="화면 관리" aria-haspopup="dialog" aria-expanded={managePanels} onClick={() => setManagePanels(true)}><LuLayoutDashboard /><span>화면 관리</span></button>
           <FriendPanel onAcceptInvite={onAcceptInvite} openRequest={friendPanelRequest} social={social} onLocate={id => { setShowMap(true); onLocateFriend(id) }} confirmAction={confirmAction} />
           <span className="pill-title">런대시</span>
           <span className="pill-sub">코스 01</span>
         </div>
         <GroupRoster group={social.pair} userId={room.userId} />
+        <label className="running-activity-picker"><LuCloud aria-hidden="true" /><span className="sr-only">구름 활동 상태 변경</span><select value={activity} onChange={event => onActivityChange(event.target.value)}>{ACTIVITY_GROUPS.map(group => <optgroup key={group.id} label={group.label}>{group.items.map(([id, label, status]) => <option key={id} value={id}>{label} · {status}</option>)}</optgroup>)}</select></label>
         {locating && <button className="chat-toggle" onClick={onReturnToRunner}>내 러너로 돌아가기</button>}
         {checkpointError && <p className="checkpoint-notice" role="status">{checkpointError}</p>}
         <div className="pill info-pill"><BiomeIcon /> {Math.floor(km) + 1}km 구간 · {biome.name}</div>
@@ -113,9 +136,10 @@ export default function Hud({
         {showMap && <div className="panel hud-left-map" aria-label="러닝 미니맵"><Minimap me={{ dist: myVisualPose?.distance ?? t.dist, lane: myVisualPose?.lane || 0, color: profile.color }} others={[...realPeers, ...ghosts.map(g => ({ id: g.id, nickname: g.nickname, dist: getGhostDist(g), color: g.color, lane: g.lane }))]} stations={stations.map(x => ({ ...x, closed: closedStations.includes(x.id) }))} /></div>}
         <ScoreSummary stats={stats} />
         {activeStation && <SupplyPanel station={activeStation} items={activeItems} distance={t.dist} resting={t.resting} onCollect={onCollect} />}
-        <button type="button" className="chat-toggle" aria-expanded={showChat} onClick={() => setShowChat((visible) => !visible)}><LuMessageCircle /> {showChat ? '채팅 숨기기' : '채팅 보이기'}</button>
         {showChat && <RunnerChat room={room} onHide={() => setShowChat(false)} />}
       </div>
+
+      {managePanels && <HudPanelManager visible={visible} onToggle={togglePanel} onAll={setAllPanels} onClose={() => setManagePanels(false)} />}
 
       {/* 상단 중앙: 체력바 + 기록 */}
       <div className="hud-tc">

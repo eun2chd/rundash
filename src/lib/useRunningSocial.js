@@ -6,7 +6,7 @@ export function peerDistance(peer, now = Date.now()) {
   return peer.distance_m + (peer.paused ? 0 : peer.speed * age)
 }
 
-export default function useRunningSocial({ profile, config, sim, ready }) {
+export default function useRunningSocial({ profile, config, sim, ready, activity = config.activity || 'rest' }) {
   const [data, setData] = useState({ peers: [], invites: [], pair: null })
   const [publicLocation, setPublicLocation] = useState(config.resume?.publicLocation ?? true)
   const [allowInvites, setAllowInvites] = useState(true)
@@ -15,7 +15,7 @@ export default function useRunningSocial({ profile, config, sim, ready }) {
   const [focusId, setFocusId] = useState(null)
   const [connected, setConnected] = useState(false)
   const options = useRef({ publicLocation, allowInvites })
-  options.current = { publicLocation, allowInvites, focusId, shareActivity, activity: config.activity || 'rest' }
+  options.current = { publicLocation, allowInvites, focusId, shareActivity, activity }
   const refreshRef = useRef(() => {})
   const enabled = ready && !config.anonymous
   useEffect(() => {
@@ -50,7 +50,7 @@ export default function useRunningSocial({ profile, config, sim, ready }) {
       api.endPair(config.id).catch(() => {})
     }
   }, [enabled, config.id, sim])
-  useEffect(() => { refreshRef.current() }, [publicLocation, allowInvites, focusId, shareActivity])
+  useEffect(() => { refreshRef.current() }, [publicLocation, allowInvites, focusId, shareActivity, activity])
   const refresh = useCallback(() => refreshRef.current(), [])
   return { ...data, enabled, connected, error, publicLocation, allowInvites, setPublicLocation, setAllowInvites, shareActivity, setShareActivity, setFocusId, refresh }
 }

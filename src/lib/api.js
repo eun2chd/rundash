@@ -17,6 +17,8 @@ export const api = {
     return unwrap(result)
   },
   async searchFriends(query) { return unwrap(await getSupabase().rpc('search_running_friends', { p_query: query.trim() })) },
+  async listFriends() { return unwrap(await getSupabase().rpc('list_saved_running_friends')) },
+  async saveFriend(id, save = true) { return unwrap(await getSupabase().rpc('save_running_friend', { p_target: id, p_save: save })) },
   async inviteFriend(id) { return unwrap(await getSupabase().rpc('invite_running_friend', { p_target: id })) },
   async respondInvite(id, action) { return unwrap(await getSupabase().rpc('respond_running_invite', { p_id: id, p_action: action })) },
   async endPair(runId) { return unwrap(await getSupabase().rpc('end_running_pair', runId ? { p_run_id: runId } : {})) },

@@ -27,6 +27,7 @@ import { formationOffset } from '../lib/formation'
 import { weatherAt } from '../lib/weather'
 import { takeNewInvites } from '../lib/invites'
 import WeatherEffects from '../three/WeatherEffects'
+import { getActivity } from '../lib/activities'
 import FinishLine, { FINISH_VISIBLE_M } from '../three/FinishLine'
 import FinishCelebration from '../components/FinishCelebration'
 import RhythmSpeedEffects from '../components/RhythmSpeedEffects'
@@ -143,6 +144,7 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
   const [judge, setJudge] = useState(null)
   const [paused, setPaused] = useState(config.resume?.sim.paused ?? !!config.groupPaused)
   const [showActivity, setShowActivity] = useState(config.showActivity !== false)
+  const [activity, setActivity] = useState(() => getActivity(config.resume?.activity || config.activity).id)
   const room = useRaceRoom({ userId: profile.userId, nickname: profile.nickname, paused: paused || !ready, profile, config, sim, ready })
   const toggleActivity = () => { const next = !showActivity; setShowActivity(next); onActivityVisibilityChange?.(next) }
   const [timeScale, setTimeScale] = useState(1)
@@ -156,7 +158,7 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
     clock.current = now
     advanceElapsed(sim.current, seconds, rhythm.current)
   }, [])
-  const social = useRunningSocial({ profile, config, sim, ready })
+  const social = useRunningSocial({ profile, config, sim, ready, activity })
   const [locateId, setLocateId] = useState(null)
   const socialRef = useRef(social)
   socialRef.current = social
@@ -182,7 +184,7 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
     tick()
     const snapshot = { version: 1, runId: config.id, savedAt: Date.now(), sim: { ...sim.current },
       stats: { ...stats.current }, items: itemsRef.current, stations, closedStations: [...closedRef.current],
-      activity: config.activity, showActivity, shareActivity: socialRef.current.shareActivity, publicLocation: socialRef.current.publicLocation, rhythmElapsed: rhythm.current.elapsed }
+      activity, showActivity, shareActivity: socialRef.current.shareActivity, publicLocation: socialRef.current.publicLocation, rhythmElapsed: rhythm.current.elapsed }
     try { localStorage.setItem(checkpointKey(profile.userId), JSON.stringify(snapshot)) }
     catch { setCheckpointError('자동 저장이 지연되고 있어요. 잠시 후 다시 저장할게요.') }
     if (cloud && !saveBusy.current) {
@@ -269,7 +271,7 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
       boostUses: s.boostUses,
       completed,
       nickname: profile.nickname,
-      activity: config.activity || 'rest',
+      activity,
       targetKm: config.distanceKm,
       distanceKm: s.dist / 1000,
       elapsedSec: s.elapsed,
@@ -556,7 +558,7 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
           sim={sim}
           rhythm={rhythm}
           profile={profile}
-          activity={showActivity ? config.activity || 'rest' : undefined}
+          activity={showActivity ? activity : undefined}
           ghosts={ghosts}
           getMyDist={getMyDist}
           getGhostDist={getGhostDist}
@@ -591,6 +593,8 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
           realPeers={social.peers.map(peer => ({ ...peer, dist: getPeerDist(peer), lane: peer.paired ? formationOffset(peer.slot).lane : -1.4 }))}
           showActivity={showActivity}
           onToggleActivity={toggleActivity}
+          activity={activity}
+          onActivityChange={value => setActivity(getActivity(value).id)}
           getMyDist={getMyDist}
           getGhostDist={getGhostDist}
           ghosts={ghosts}

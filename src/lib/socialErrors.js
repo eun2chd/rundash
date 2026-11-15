@@ -1,5 +1,6 @@
 // Never show raw PostgREST, SQL, network, or implementation errors to players.
 const FRIENDLY_ERRORS = [
+  '친구로 추가할 수 없는 러너예요.', '친구는 최대 200명까지 추가할 수 있어요.',
   '초대가 만료됐어요. 새 초대를 받아 주세요.', '초대 조건이 바뀌었어요. 새 초대를 받아 주세요.',
   '현재 러닝을 확인한 뒤 다시 시도해 주세요.', '방장만 일시정지하거나 다시 시작할 수 있어요.',
   '새로고침한 뒤 초대 조건을 확인하고 수락해 주세요.',
