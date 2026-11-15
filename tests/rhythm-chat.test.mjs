@@ -50,3 +50,15 @@ test('presence roster deduplicates tabs, prefers running status and never expose
   assert.equal(members[2].nickname, '러너')
   assert.deepEqual(presenceMembers({}), [])
 })
+
+test('runner details come from the active session and omit unrelated account fields', () => {
+  const runner = { level: 7, speed: 3.5, distance: 1800, targetKm: 5, outfit: { shoes: 'race' }, rhythmBoost: true }
+  const [member] = presenceMembers({ alice: [
+    { nickname: '러너', status: 'paused', runner: { distance: 100 } },
+    { nickname: '러너', status: 'running', runner, email: 'private@example.com', avatar_image: 'large-image' },
+  ] })
+  assert.deepEqual(member.runner, runner)
+  assert.equal(member.email, undefined)
+  assert.equal(member.avatar_image, undefined)
+  assert.equal(member.status, 'running')
+})

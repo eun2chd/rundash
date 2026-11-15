@@ -65,7 +65,7 @@ export default function Hud({
   // 예상 남은 시간 = 남은 거리 / 현재 속도 (+ 남은 회복 시간)
   const curSpeed = s.speed * Math.max(t.mult || 0, 0.5)
   const remainSec = (totalM - t.dist) / curSpeed + (t.resting ? Math.max(0, t.restLeft) : 0)
-  const curPace = t.resting ? null : config.paceSec / (t.mult || 1)
+  const curPace = t.resting || paused || t.mult <= 0 ? null : 1000 / (s.speed * t.mult)
   const slowPct = Math.max(0, Math.round((1 - (t.mult || 0)) * 100))
 
   const st = staminaState(t.stamina, t.resting, s.maxStamina)
@@ -119,6 +119,9 @@ export default function Hud({
 
       {/* 상단 중앙: 체력바 + 기록 */}
       <div className="hud-tc">
+        <div className="live-pace" role="group" aria-label="현재 페이스">
+          <LuGauge aria-hidden="true" /><span>현재 페이스</span><strong>{curPace ? fmtPace(curPace) : paused ? '일시정지' : '회복 중'}</strong>{curPace && <small>/km</small>}
+        </div>
         <div className={`stamina tone-${st.tone}`}>
           <LuHeartPulse className="stamina-icon" />
           <div className="stamina-body">

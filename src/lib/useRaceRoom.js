@@ -2,10 +2,14 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { getSettings } from './settings'
 import { getSupabase } from './supabase'
 import { mergeMessages, presenceMembers } from './chat'
+import { weatherAt } from './weather'
 
 const roomCleanup = new WeakMap()
 
-export default function useRaceRoom({ userId, nickname, paused }) {
+export default function useRaceRoom({ userId, nickname, paused, profile, config, sim, ready }) {
+  const [photos, setPhotos] = useState({})
+  const runnerRef = useRef(null)
+  runnerRef.current = { profile, config, sim, ready }
   const [messages, setMessages] = useState([])
   const [counts, setCounts] = useState({ online: 0, running: 0, members: [] })
   const [connection, setConnection] = useState('connecting')
@@ -25,6 +29,22 @@ export default function useRaceRoom({ userId, nickname, paused }) {
       if (!alive) return
       channel = client.channel('rundash-running-room', { config: { presence: { key: userId } } })
       channelRef.current = channel
+      const metadata = () => {
+        const { profile: p, config: c, sim: source, ready: available } = runnerRef.current
+        const s = source?.current
+        const weather = s ? weatherAt(s.weatherTimeMs) : null
+        return { ...latest.current, ...(available && s && { runner: { level: c.anonymous ? null : c.level, anonymous: !!c.anonymous, paceSec: c.paceSec, speed: s.speed * (s.speedMult || 0), distance: s.dist, targetKm: c.distanceKm, elapsed: s.elapsed, stamina: s.stamina, maxStamina: s.maxStamina, resting: s.resting, finished: s.finished, intensity: c.intensityLabel, outfit: p.outfit, booster: s.boostLeft > 0, rhythmBoost: s.rhythmBoostLeft > 0, weatherLabel: weather?.label, weatherDrain: Math.round(((weather?.drainMultiplier || 1) - 1) * 100), updatedAt: Date.now() } }) }
+      }
+      channel.on('broadcast', { event: 'runner-photo-request' }, ({ payload }) => {
+        if (payload?.target !== userId || typeof payload?.requester !== 'string') return
+        channel.send({ type: 'broadcast', event: 'runner-photo', payload: { requester: payload.requester, id: userId, image: runnerRef.current.profile?.avatar_image || null } }).catch(() => {})
+      }).on('broadcast', { event: 'runner-photo' }, ({ payload }) => {
+        if (!alive || payload?.requester !== userId || typeof payload.id !== 'string') return
+        const image = payload.image
+        if (image !== null && (typeof image !== 'string' || image.length > 60000 || !/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(image))) return
+        setPhotos(previous => ({ ...previous, [payload.id]: image }))
+      })
+      channel.publishRunner = () => channel.track(metadata()).catch(() => {})
       const sync = () => {
         if (!alive) return
         const members = presenceMembers(channel.presenceState())
@@ -38,7 +58,7 @@ export default function useRaceRoom({ userId, nickname, paused }) {
           if (!alive) return
           if (status === 'SUBSCRIBED') {
             setConnection('connected')
-            channel.track(latest.current).catch(() => { if (alive) setConnection('reconnecting') })
+            channel.publishRunner()
             client.from('race_messages').select('id,user_id,nickname,is_anonymous,message,created_at').order('created_at', { ascending: false }).limit(50)
               .then(({ data, error: loadError }) => {
                 if (!alive) return
@@ -57,8 +77,15 @@ export default function useRaceRoom({ userId, nickname, paused }) {
     }
   }, [userId])
   useEffect(() => {
-    if (connection === 'connected') channelRef.current?.track(latest.current).catch(() => {})
-  }, [paused, nickname, connection])
+    if (connection !== 'connected') return
+    channelRef.current?.publishRunner?.()
+    const timer = setInterval(() => channelRef.current?.publishRunner?.(), 3000)
+    return () => clearInterval(timer)
+  }, [paused, nickname, connection, ready])
+  const loadPhoto = useCallback(id => {
+    if (id === userId) { setPhotos(previous => ({ ...previous, [id]: runnerRef.current.profile?.avatar_image || null })); return }
+    channelRef.current?.send({ type: 'broadcast', event: 'runner-photo-request', payload: { target: id, requester: userId } }).catch(() => {})
+  }, [userId])
   const send = useCallback(async (text) => {
     const message = text.trim()
     if (sendingRef.current || !message || message.length > getSettings().chatMaxLength) return false
@@ -73,5 +100,5 @@ export default function useRaceRoom({ userId, nickname, paused }) {
       return false
     } finally { sendingRef.current = false; setSending(false) }
   }, [nickname])
-  return { messages, ...counts, connection, error, sending, send, userId }
+  return { messages, ...counts, connection, error, sending, send, userId, photos, loadPhoto }
 }

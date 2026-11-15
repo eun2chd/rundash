@@ -302,6 +302,12 @@ input[type=range] { width: 100%; margin: 14px 0 10px; accent-color: var(--olive)
 .stat-foot span { display: inline-flex; align-items: center; gap: 5px; }
 .stat-foot svg { width: 13px; height: 13px; }
 .stat-foot em { font-style: normal; opacity: 1; }
+.live-pace { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 8px 16px; border: 1px solid #d8e8b977; border-radius: 12px; background: #1c221bf0; color: #fff8e6; box-shadow: 0 4px 18px #0002; white-space: nowrap; }
+.live-pace > svg { width: 18px; height: 18px; color: #ccdeac; }
+.live-pace > span { font-size: 11px; }
+.live-pace > strong { font-size: 25px; line-height: 1.1; font-variant-numeric: tabular-nums; color: #e0efb5; }
+.live-pace > small { font-size: 11px; }
+@media (max-width:760px) { .live-pace { padding: 6px 12px; gap: 6px; } .live-pace > strong { font-size: 22px; } }
 
 /* 보급 패널 */
 .supply-panel { pointer-events: auto; background: rgba(224,123,57,.96); color: var(--ink); backdrop-filter: blur(12px); border: 1px solid rgba(255,248,230,.35); border-radius: 16px; padding: 10px 12px; animation: rise .25s ease-out; }
@@ -967,6 +973,26 @@ button.room-presence:focus-visible { outline: 2px solid #fff6d5; outline-offset:
 .room-member-state { flex: none; font-size: 10px; }
 .room-member-state.running { color: #cbe1a7; }
 .room-members p { font-size: 12px; }
+.room-member-button { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; padding: 5px; border: 0; border-radius: 6px; color: inherit; background: transparent; font: inherit; text-align: left; cursor: pointer; }
+.room-member-button:hover, .room-member-button:focus-visible { background: #ffffff16; outline: 1px solid #ccdeac; }
+.runner-details { position: fixed; inset: 0; margin: auto; width: min(480px, calc(100vw - 28px)); max-height: calc(100dvh - 32px); padding: 24px; overflow-y: auto; border: 1px solid var(--line); border-radius: 20px; background: var(--card); color: var(--ink); font: inherit; box-shadow: 0 24px 80px #0005; }
+.runner-details::backdrop { background: #101a1466; }
+.runner-details > header { display: flex; justify-content: space-between; align-items: center; }
+.runner-details-person { display: flex; align-items: center; gap: 16px; margin: 16px 0 22px; }
+.runner-details-person img { width: 72px; height: 72px; border-radius: 50%; object-fit: cover; }
+.runner-details h2 { margin: 0 0 6px; font-size: 23px; overflow-wrap: anywhere; }
+.runner-details-person p { font-size: 12px; }
+.runner-details-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.runner-details-stats > div { padding: 12px; border-radius: 10px; background: #5f6b3c0e; }
+.runner-details-stats dt { font-size: 11px; opacity: .7; margin-bottom: 5px; }
+.runner-details-stats dd { margin: 0; font-size: 14px; font-weight: 700; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.runner-details-note { font-size: 11px; line-height: 1.7; margin: 14px 0; opacity: .75; }
+.runner-details h3 { font-size: 14px; margin: 20px 0 10px; }
+.runner-details-gear { padding: 0; list-style: none; margin-bottom: 20px; }
+.runner-details-gear li { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 12px; }
+.runner-details-gear strong { display: flex; align-items: center; gap: 6px; }
+.runner-details-gear i { width: 12px; height: 12px; border-radius: 50%; border: 1px solid #0002; }
+.runner-details > .btn { width: 100%; }
 @media (max-width: 760px) { .room-members { padding: 8px; } .room-members li { font-size: 11px; } }
 /* Let the map toolbar popover escape the scrollable stats column. */
 .hud-tl:has(.friends-panel) { overflow: visible; z-index: 60; }

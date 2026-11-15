@@ -10,7 +10,7 @@ import AidStation from '../three/AidStation'
 import { BIOMES, biomeIndexAt } from '../three/biomes'
 import { loopGap } from '../three/track'
 import { MOCK_RUNNERS, ITEM_TYPES, generateCourse } from '../lib/mockData'
-import { cadenceFor, speedMps, totalRunSec } from '../lib/pace'
+import { cadenceFor, speedMps, totalRunSec, fmtPace } from '../lib/pace'
 import { STAMINA, drainPerKm, tiredFor } from '../lib/stamina'
 import { activateBooster } from '../lib/simulation'
 import { api } from '../lib/api'
@@ -139,7 +139,7 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
   const [judge, setJudge] = useState(null)
   const [paused, setPaused] = useState(config.resume?.sim.paused ?? !!config.groupPaused)
   const [showActivity, setShowActivity] = useState(config.showActivity !== false)
-  const room = useRaceRoom({ userId: profile.userId, nickname: profile.nickname, paused: paused || !ready })
+  const room = useRaceRoom({ userId: profile.userId, nickname: profile.nickname, paused: paused || !ready, profile, config, sim, ready })
   const toggleActivity = () => { const next = !showActivity; setShowActivity(next); onActivityVisibilityChange?.(next) }
   const [timeScale, setTimeScale] = useState(1)
   const stats = useRef(config.resume?.stats || { score: 0, collected: 0, supplies: 0, missedSupplies: 0, medals: 0, combo: 0, maxCombo: 0, cheersSent: 0, cheersGot: 0, perfect: 0, good: 0 })
@@ -212,6 +212,22 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
     setToasts((t) => [...t.slice(-3), { id, text, kind, icon, action }])
     setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), kind === 'invite' ? 6500 : 2600)
   }, [])
+  const paceReport = useRef(Math.floor((config.resume?.sim.elapsed || 0) / 300))
+  const distancePaceReport = useRef(Math.floor((config.resume?.sim.dist || 0) / 1000))
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const s = sim.current
+      const period = Math.floor(s.elapsed / 300)
+      if (!ready || s.paused || s.finished || period <= paceReport.current) return
+      paceReport.current = period
+      const weather = weatherAt(s.weatherTimeMs)
+      const extra = Math.round((weather.drainMultiplier - 1) * 100)
+      const pace = s.resting ? '회복 중' : `${fmtPace(1000 / (s.speed * (s.speedMult || 1)))}/km`
+      const boosts = [s.boostLeft > 0 && '부스터', s.rhythmBoostLeft > 0 && '리듬 부스트'].filter(Boolean)
+      toast(`${period * 5}분 · 현재 ${pace}${boosts.length ? ` · ${boosts.join(' + ')}` : ''} · ${weather.label}${extra ? ` (체력 소모 +${extra}%)` : ''}`, 'info', LuFootprints)
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [ready, toast])
 
   useEffect(() => {
     const fresh = takeNewInvites(social.invites,seenInvites.current)
@@ -453,7 +469,12 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
     if (bi !== biomeRef.current) {
       biomeRef.current = bi
       setBiomeIdx(bi)
-      toast(`${Math.floor(my / 1000)}km 통과! ${BIOMES[bi].name} 구간`, 'km', BIOME_ICONS[BIOMES[bi].key])
+    }
+    const kmPassed = Math.floor(my / 1000)
+    if (ready && kmPassed > distancePaceReport.current) {
+      distancePaceReport.current = kmPassed
+      const pace = s.resting || s.speedMult <= 0 ? '회복 중' : `${fmtPace(1000 / (s.speed * s.speedMult))}/km`
+      toast(`${kmPassed}km 통과! · 현재 페이스 ${pace} · ${BIOMES[bi].name} 구간`, 'km', LuFootprints)
     }
 
     // 지나친 보급소는 끝

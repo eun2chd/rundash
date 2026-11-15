@@ -14,7 +14,7 @@ export function presenceMembers(state = {}) {
     const active = sessions.find(session => session.status === 'running') || sessions[0]
     const named = typeof active.nickname === 'string' ? active : sessions.find(session => typeof session.nickname === 'string')
     const nickname = named?.nickname?.trim().slice(0,10) || '러너'
-    return [{ id, nickname, status: sessions.some(session => session.status === 'running') ? 'running' : 'paused' }]
+    return [{ id, nickname, status: sessions.some(session => session.status === 'running') ? 'running' : 'paused', ...(active.runner && typeof active.runner === 'object' ? { runner: active.runner } : {}) }]
   })
 }
 
