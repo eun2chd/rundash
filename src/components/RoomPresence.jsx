@@ -18,6 +18,6 @@ export default function RoomPresence({ room }) {
       <h2>접속 중인 러너</h2>
       {members.length ? <ul>{members.map(member => <li key={member.id}><button type="button" className="room-member-button" aria-label={`${member.nickname} 러너 정보 보기`} onClick={() => setSelected(member)}><span className="room-member-name">{member.nickname}{member.id === room.userId && <small> (나)</small>}</span><span className={`room-member-state ${member.status}`}>{member.status === 'running' ? '달리는 중' : '쉬는 중'} ›</span></button></li>)}</ul> : <p>접속자 목록을 확인하고 있어요.</p>}
     </section>}
-    {selected && <RunnerDetails member={members.find(member => member.id === selected.id) || selected} connected={connected && members.some(member => member.id === selected.id)} photo={room.photos?.[selected.id]} loadPhoto={room.loadPhoto} onClose={() => setSelected(null)} />}
+    {selected && <RunnerDetails member={members.find(member => member.id === selected.id) || selected} connected={connected && members.some(member => member.id === selected.id)} photo={room.photos?.[selected.id]} loadPhoto={room.loadPhoto} watchRunner={room.watchRunner} onClose={() => setSelected(null)} />}
   </div>
 }

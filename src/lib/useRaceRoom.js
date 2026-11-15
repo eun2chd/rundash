@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { getSettings } from './settings'
 import { getSupabase } from './supabase'
 import { mergeMessages, presenceMembers } from './chat'
@@ -19,6 +19,7 @@ async function releasePreviousRoom(client, pending) {
 
 export default function useRaceRoom({ userId, nickname, paused, profile, config, sim, ready }) {
   const [photos, setPhotos] = useState({})
+  const [runners, setRunners] = useState({})
   const runnerRef = useRef(null)
   runnerRef.current = { profile, config, sim, ready }
   const [messages, setMessages] = useState([])
@@ -74,12 +75,24 @@ export default function useRaceRoom({ userId, nickname, paused, profile, config,
       if (!alive) return
       channel = client.channel(ROOM_TOPIC, { config: { presence: { key: userId } } })
       channelRef.current = channel
-      const metadata = () => {
+      const runnerState = () => {
         const { profile: p, config: c, sim: source, ready: available } = runnerRef.current
         const s = source?.current
-        const weather = s ? weatherAt(s.weatherTimeMs) : null
-        return { ...latest.current, ...(available && s && { runner: { level: c.anonymous ? null : c.level, anonymous: !!c.anonymous, paceSec: c.paceSec, speed: s.speed * (s.speedMult || 0), distance: s.dist, targetKm: c.distanceKm, elapsed: s.elapsed, stamina: s.stamina, maxStamina: s.maxStamina, resting: s.resting, finished: s.finished, intensity: c.intensityLabel, outfit: p.outfit, booster: s.boostLeft > 0, rhythmBoost: s.rhythmBoostLeft > 0, weatherLabel: weather?.label, weatherDrain: Math.round(((weather?.drainMultiplier || 1) - 1) * 100), updatedAt: Date.now() } }) }
+        if (!available || !s) return null
+        const weather = weatherAt(s.weatherTimeMs)
+        return { level: c.anonymous ? null : c.level, anonymous: !!c.anonymous, paceSec: c.paceSec, speed: s.speed * (s.speedMult || 0), distance: s.dist, targetKm: c.distanceKm, elapsed: s.elapsed, stamina: s.stamina, maxStamina: s.maxStamina, resting: s.resting, finished: s.finished, intensity: c.intensityLabel, outfit: p.outfit, booster: s.boostLeft > 0, rhythmBoost: s.rhythmBoostLeft > 0, weatherLabel: weather?.label, weatherDrain: Math.round(((weather?.drainMultiplier || 1) - 1) * 100), updatedAt: Date.now() }
       }
+      // Live runner details go over broadcast, and only to someone who asked: presence
+      // updates are rate limited per client and the server closes the channel past the limit.
+      channel.on('broadcast', { event: 'runner-state-request' }, ({ payload }) => {
+        if (payload?.target !== userId || typeof payload?.requester !== 'string') return
+        const runner = runnerState()
+        if (runner) channel.send({ type: 'broadcast', event: 'runner-state', payload: { requester: payload.requester, id: userId, runner } }).catch(() => {})
+      }).on('broadcast', { event: 'runner-state' }, ({ payload }) => {
+        if (!alive || payload?.requester !== userId || typeof payload.id !== 'string' || !payload.runner || typeof payload.runner !== 'object') return
+        setRunners(previous => ({ ...previous, [payload.id]: payload.runner }))
+      })
+      channel.ownRunner = runnerState
       channel.on('broadcast', { event: 'runner-photo-request' }, ({ payload }) => {
         if (payload?.target !== userId || typeof payload?.requester !== 'string') return
         channel.send({ type: 'broadcast', event: 'runner-photo', payload: { requester: payload.requester, id: userId, image: runnerRef.current.profile?.avatar_image || null } }).catch(() => {})
@@ -89,7 +102,8 @@ export default function useRaceRoom({ userId, nickname, paused, profile, config,
         if (image !== null && (typeof image !== 'string' || image.length > 60000 || !/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(image))) return
         setPhotos(previous => ({ ...previous, [payload.id]: image }))
       })
-      channel.publishRunner = () => channel.track(metadata()).catch(() => {})
+      // Presence carries only who is here and whether they are running; re-sent on change only.
+      channel.publishRunner = () => channel.track({ ...latest.current }).catch(() => {})
       const sync = () => {
         if (!alive) return
         const members = presenceMembers(channel.presenceState())
@@ -117,11 +131,13 @@ export default function useRaceRoom({ userId, nickname, paused, profile, config,
     }
   }, [userId])
   useEffect(() => {
-    if (presenceConnection !== 'connected') return
-    channelRef.current?.publishRunner?.()
-    const timer = setInterval(() => channelRef.current?.publishRunner?.(), 3000)
-    return () => clearInterval(timer)
-  }, [paused, nickname, presenceConnection, ready])
+    if (presenceConnection === 'connected') channelRef.current?.publishRunner?.()
+  }, [paused, nickname, presenceConnection])
+  // Ask one runner for their live details (the details panel polls this while open).
+  const watchRunner = useCallback(id => {
+    if (id === userId) { const own = channelRef.current?.ownRunner?.(); if (own) setRunners(previous => ({ ...previous, [id]: own })); return }
+    channelRef.current?.send({ type: 'broadcast', event: 'runner-state-request', payload: { target: id, requester: userId } }).catch(() => {})
+  }, [userId])
   const loadPhoto = useCallback(id => {
     if (id === userId) { setPhotos(previous => ({ ...previous, [id]: runnerRef.current.profile?.avatar_image || null })); return }
     channelRef.current?.send({ type: 'broadcast', event: 'runner-photo-request', payload: { target: id, requester: userId } }).catch(() => {})
@@ -140,5 +156,6 @@ export default function useRaceRoom({ userId, nickname, paused, profile, config,
       return false
     } finally { sendingRef.current = false; setSending(false) }
   }, [nickname])
-  return { messages, ...counts, connection, presenceConnection, presenceError, error, sending, send, userId, photos, loadPhoto }
+  const members = useMemo(() => counts.members.map(member => runners[member.id] ? { ...member, runner: runners[member.id] } : member), [counts.members, runners])
+  return { messages, ...counts, members, connection, presenceConnection, presenceError, error, sending, send, userId, photos, loadPhoto, watchRunner }
 }

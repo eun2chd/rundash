@@ -5,7 +5,7 @@ import { OUTFIT_CATEGORIES, normalizeOutfit } from '../lib/outfit'
 import { fmtPace, fmtTime } from '../lib/pace'
 
 const number = value => typeof value === 'number' && Number.isFinite(value)
-export default function RunnerDetails({ member, connected, photo, loadPhoto, onClose }) {
+export default function RunnerDetails({ member, connected, photo, loadPhoto, watchRunner, onClose }) {
   const dialog = useRef()
   const titleId = useId()
   const r = member.runner
@@ -17,6 +17,13 @@ export default function RunnerDetails({ member, connected, photo, loadPhoto, onC
     return () => { element.close(); if (previous?.isConnected) previous.focus() }
   }, [])
   useEffect(() => { loadPhoto(member.id) }, [loadPhoto, member.id])
+  // Live details are requested only while this panel is open.
+  useEffect(() => {
+    if (!watchRunner || !connected) return
+    watchRunner(member.id)
+    const timer = setInterval(() => watchRunner(member.id), 3000)
+    return () => clearInterval(timer)
+  }, [watchRunner, member.id, connected])
   const pace = r && number(r.speed) && r.speed > 0 && member.status === 'running' && !r.resting && !r.finished ? fmtPace(1000 / r.speed) : '휴식 / 정지'
   return createPortal(<dialog ref={dialog} className="runner-details" aria-labelledby={titleId} onCancel={event => { event.preventDefault(); onClose() }} onKeyDown={event => event.stopPropagation()}>
     <header><span className="eyebrow">RUNNER PROFILE</span><button type="button" className="icon-btn" aria-label="러너 정보 닫기" onClick={onClose} autoFocus><LuX /></button></header>
