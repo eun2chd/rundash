@@ -228,7 +228,7 @@ export default function App() {
       const ticket = await withLoading('러닝 코스를 준비하고 있어요.', async () => (await Promise.all([user.is_anonymous ? { id: startId.current, xp: 0 } : api.startRun({ id: startId.current, ...config }), loadRunScreen()]))[0])
       if (ticket.settings) configureSettings(ticket.settings)
       setProgression((previous) => ({ ...previous, xp: ticket.xp }))
-      setActiveConfig({ ...config, distanceKm: ticket.distanceKm ?? config.distanceKm, ...trainingFor(ticket.xp, ticket.intensity || config.intensity, user.is_anonymous), id: ticket.id, anonymous: user.is_anonymous })
+      setActiveConfig({ ...config, distanceKm: ticket.distanceKm ?? config.distanceKm, ...trainingFor(ticket.xp, ticket.intensity || config.intensity, user.is_anonymous, Number(ticket.paceSec) || config.customPace), id: ticket.id, anonymous: user.is_anonymous })
       clearLocalCheckpoint(user.id)
       setResumeOffer(null)
       startId.current = null
@@ -241,7 +241,7 @@ export default function App() {
     const ticket = value.ticket
     setProgression(previous => value.previousRun?.progression || { ...previous, xp: ticket.xp })
     configureSettings(ticket.settings)
-    setActiveConfig({ ...config, ...trainingFor(ticket.xp, ticket.intensity, false), paceSec: Number(ticket.paceSec), distanceKm: Number(ticket.distanceKm), id: ticket.id, anonymous: false, groupPaused: !!ticket.groupPaused })
+    setActiveConfig({ ...config, ...trainingFor(ticket.xp, ticket.intensity, false, Number(ticket.paceSec)), paceSec: Number(ticket.paceSec), distanceKm: Number(ticket.distanceKm), id: ticket.id, anonymous: false, groupPaused: !!ticket.groupPaused })
     setConfig(previous => ({ ...previous, distanceKm: Number(ticket.distanceKm), intensity: ticket.intensity }))
     clearLocalCheckpoint(user.id); setResumeOffer(null); setError(''); setScreen('run')
   }
@@ -255,7 +255,7 @@ export default function App() {
       if (fresh?.session.id !== resumeOffer.session.id) throw new Error('이미 종료되거나 다른 곳에서 새로 시작한 러닝이에요.')
       const session = fresh.session
       configureSettings(session.rules)
-      setActiveConfig({ ...config, ...trainingFor(session.xp_at_start, session.intensity, false), paceSec: Number(session.pace_sec), distanceKm: Number(session.target_km), id: session.id, anonymous: false, practice: session.practice, activity: resumeOffer.payload?.activity || 'rest', showActivity: resumeOffer.payload?.showActivity !== false, resume: resumeOffer.payload || undefined })
+      setActiveConfig({ ...config, ...trainingFor(session.xp_at_start, session.intensity, false, Number(session.pace_sec)), paceSec: Number(session.pace_sec), distanceKm: Number(session.target_km), id: session.id, anonymous: false, practice: session.practice, activity: resumeOffer.payload?.activity || 'rest', showActivity: resumeOffer.payload?.showActivity !== false, resume: resumeOffer.payload || undefined })
       setResumeOffer(null); setError(''); setScreen('run')
     } catch (err) { setError(err.message || '러닝을 복구하지 못했어요.') }
     finally { setStarting(false) }
@@ -280,7 +280,6 @@ export default function App() {
       {screen === 'character' && (
         <CharacterCreate user={user} initial={profile} onDone={async (p) => { if (await confirm({ title: '러닝 설정으로 이동할까요?', description: '완성한 러너로 러닝을 준비합니다.' })) { setProfile(p); setScreen('setup') } }} />
       )}
-      {screen === 'setup' && resumeOffer && <aside className="resume-running" role="status"><strong>이어갈 수 있는 러닝이 있어요.</strong><span>{((resumeOffer.payload?.sim.dist || 0) / 1000).toFixed(2)} / {resumeOffer.session.target_km} km · {resumeOffer.payload?.sim.paused ? '일시정지 중' : '달리는 중'}</span><button className="btn primary" disabled={starting} onClick={resumeRun}>이어서 달리기</button><p>새 러닝을 시작하면 이전 러닝은 이어갈 수 없어요.</p></aside>}
       {screen === 'setup' && (
         <RunSetup
           profile={profile}
@@ -291,6 +290,8 @@ export default function App() {
           onChange={setConfig}
           onStart={startRun}
           onOpenAttendance={() => navigate('attendance')}
+          resumeOffer={resumeOffer}
+          onResume={resumeRun}
         />
       )}
       {screen === 'run' && <RunScreen key={activeConfig?.id} onCompanionStart={enterCompanionRun} overlayOpen={!!question || manualOpen} ref={runControls} profile={profile} config={activeConfig} onFinish={finishRun} confirmAction={confirm} onActivityVisibilityChange={(visible) => setConfig((previous) => ({ ...previous, showActivity: visible }))} />}

@@ -7,7 +7,9 @@ import AttendanceCard from '../components/AttendanceCard'
 import { INTENSITIES, experienceFor, trainingFor } from '../lib/progression'
 import CoursePreview from '../components/CoursePreview'
 import { getSettings } from '../lib/settings'
-import { LuDroplet } from 'react-icons/lu'
+import { LuDroplet, LuLock, LuPlus, LuPlay } from 'react-icons/lu'
+import PacePickerDialog from '../components/PacePickerDialog'
+import { effortLabel } from '../lib/pacePlans'
 import { cadenceFor, fmtPace, fmtTime, speedKmh, totalRunSec, fmtKm } from '../lib/pace'
 
 const DISTANCES = [1, 3, 5, 10, 21.0975, 42.195]
@@ -15,12 +17,13 @@ const DIST_LABEL = { 21.0975: '하프', 42.195: '풀' }
 
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v))
 
-export default function RunSetup({ profile, config, xp = 0, anonymous = false, starting = false, onChange, onStart, onOpenAttendance }) {
+export default function RunSetup({ profile, config, xp = 0, anonymous = false, starting = false, onChange, onStart, onOpenAttendance, resumeOffer, onResume }) {
   const [activityGroup, setActivityGroup] = useState(() => getActivity(config.activity).group)
   const { distanceKm } = config
   const maxDistance = anonymous ? getSettings().anonymousMaxKm : getSettings().maxDistanceKm
   useEffect(() => { if (distanceKm > maxDistance) onChange({ ...config, distanceKm: maxDistance }) }, [distanceKm, maxDistance])
-  const training = trainingFor(xp, config.intensity, anonymous)
+  const [picking, setPicking] = useState(false)
+  const training = trainingFor(xp, config.intensity, anonymous, config.customPace)
   const { paceSec } = training
   const setDist = (v) => onChange({ ...config, distanceKm: clamp(Number(v) || 0.5, 0.5, maxDistance) })
 
@@ -39,6 +42,11 @@ export default function RunSetup({ profile, config, xp = 0, anonymous = false, s
         <section className="card form-card">
           <div className="eyebrow">STEP 2</div>
           <h2>오늘의 러닝</h2>
+          {resumeOffer && <section className="resume-card" aria-label="이어갈 수 있는 러닝">
+            <div><strong>달리던 러닝이 있어요</strong><span>{((resumeOffer.payload?.sim.dist || 0) / 1000).toFixed(2)} / {resumeOffer.session.target_km} km · {resumeOffer.payload?.sim.paused ? '일시정지 중' : '달리는 중'}</span></div>
+            <button type="button" className="btn primary" disabled={starting} onClick={onResume}><LuPlay /> 이어서 달리기</button>
+            <small>새 러닝을 시작하면 이전 러닝은 이어갈 수 없어요.</small>
+          </section>}
           <GrowthCard xp={xp} anonymous={anonymous} />
           <AttendanceCard anonymous={anonymous} onOpenCalendar={onOpenAttendance} />
 
@@ -46,8 +54,16 @@ export default function RunSetup({ profile, config, xp = 0, anonymous = false, s
             <span>{anonymous ? '기본 페이스' : '러닝 강도'}</span>
             <div className="intensity-options">
               {INTENSITIES.map((effort) => <button type="button" key={effort.id} className={`intensity-option ${training.intensity === effort.id ? 'on' : ''}`} aria-pressed={training.intensity === effort.id} disabled={starting} onClick={() => onChange({ ...config, intensity: effort.id })}><strong>{effort.label}</strong><span>{fmtPace(trainingFor(xp, effort.id, anonymous).paceSec)} /km</span><small>{effort.description}</small></button>)}
+              {anonymous
+                ? <button type="button" className="intensity-option custom-pace locked" disabled><strong><LuLock /> 내 페이스</strong><span>회원 전용</span><small>정식 계정은 레벨에 맞춰 직접 골라요</small></button>
+                : <button type="button" className={`intensity-option custom-pace ${training.intensity === 'custom' ? 'on' : ''}`} aria-pressed={training.intensity === 'custom'} aria-haspopup="dialog" disabled={starting} onClick={() => setPicking(true)}>
+                  <strong>{training.intensity === 'custom' ? '내 페이스' : <><LuPlus /> 내 페이스</>}</strong>
+                  <span>{training.intensity === 'custom' ? `${fmtPace(paceSec)} /km` : '직접 고르기'}</span>
+                  <small>{training.intensity === 'custom' ? `${effortLabel(training.drainMultiplier)} · 눌러서 바꾸기` : '레벨이 오를수록 더 많은 페이스'}</small>
+                </button>}
             </div>
-            <small>{anonymous ? '기본 페이스 3가지 중 선택해요. 익명 러너는 레벨과 성장, 부스터가 없어요.' : `Lv.${training.level} 기준 페이스예요. 레벨이 오르면 같은 강도에서도 빨라져요.`}</small>
+            <small>{anonymous ? '기본 페이스 3가지 중 선택해요. 익명 러너는 레벨과 성장, 부스터가 없어요.' : `Lv.${training.level} 기준 페이스예요. 레벨이 오르면 같은 강도에서도 빨라지고, 고를 수 있는 페이스도 늘어나요.`}</small>
+            {picking && <PacePickerDialog xp={xp} distanceKm={distanceKm} value={config.customPace} onClose={() => setPicking(false)} onSelect={(pace) => { onChange({ ...config, intensity: 'custom', customPace: pace }); setPicking(false) }} />}
           </div>
 
           <div className="field">

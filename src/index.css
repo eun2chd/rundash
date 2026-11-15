@@ -474,7 +474,7 @@ input[type=range] { width: 100%; margin: 14px 0 10px; accent-color: var(--olive)
 .next-unlock .eyebrow { display: block; font-size: 10px; }
 .next-unlock > strong { font-size: 14px; }
 .next-unlock > p, .next-unlock > small { display: block; font-size: 11px; line-height: 1.7; margin-top: 3px; }
-.intensity-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.intensity-options { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
 .intensity-option { padding: 14px 8px; border: 1px solid var(--line); border-radius: 12px; background: #fff; text-align: left; }
 .intensity-option > strong, .intensity-option > span, .intensity-option > small { display: block; }
 .intensity-option > strong { font-size: 13px; margin-bottom: 7px; }
@@ -953,9 +953,7 @@ body:has(.admin-screen) .site-header { background: #fff; border-color: #dde3e4; 
 .friends-panel .friend-blocks-toggle { align-self: flex-start; padding: 8px 0; font-size: 12px; }
 .friend-notice { padding: 12px 14px; border-radius: 9px; background: #f1f4e9; color: #465332; }
 .checkpoint-notice { max-width: 300px; padding: 10px 12px; background: #fff7dd; color: #342e20; border-radius: 8px; font-size: 11px; line-height: 1.6; }
-.resume-running { margin: 20px auto; max-width: 1100px; padding: 18px; display: flex; align-items: center; flex-wrap: wrap; gap: 12px; border: 1px solid #b3bf9b; border-radius: 12px; background: #edf2df; font-size: 14px; }
-.resume-running p { flex-basis: 100%; font-size: 12px; }
-@media (max-width: 760px) { .hud-tl .friends-panel { padding: 16px; max-height: 60dvh; } .resume-running { margin: 12px; } }
+@media (max-width: 760px) { .hud-tl .friends-panel { padding: 16px; max-height: 60dvh; } }
 .room-presence-wrap { width: 100%; }
 button.room-presence { color: var(--cream); text-align: left; cursor: pointer; }
 button.room-presence:disabled { cursor: default; }
@@ -1182,3 +1180,42 @@ button.room-presence:focus-visible { outline: 2px solid #fff6d5; outline-offset:
 @media (max-width: 600px) { .attendance-summary { grid-template-columns: repeat(2, 1fr); } .calendar { gap: 4px; } .calendar-day { padding: 3px 5px; border-radius: 9px; } .calendar-date { font-size: 11px; } .calendar-stamp { inset: 36% 10% 6%; border-width: 2px; } .calendar-stamp em { font-size: 9px; bottom: -7px; } }
 @media (prefers-reduced-motion: reduce) { .calendar-day.stamped .calendar-stamp, .calendar[aria-busy="true"] .calendar-day { animation: none; } }
 .attendance-page .btn.block { margin-top: 14px; }
+
+/* ─── 내 페이스 ─── */
+.intensity-option.custom-pace { border-style: dashed; border-color: var(--olive); }
+.intensity-option.custom-pace.on { border-style: solid; }
+.intensity-option.custom-pace > strong { display: flex; align-items: center; gap: 4px; }
+.intensity-option.custom-pace.locked { border-color: #b9b1a1; background: #f3efe6; }
+@media (max-width: 520px) { .intensity-options { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.pace-dialog { width: min(520px, calc(100vw - 32px)); padding: 24px; }
+.pace-dialog-sub { font-size: 14px; margin-bottom: 4px; }
+.pace-section-title { font-size: 14px; font-weight: 800; margin: 18px 0 8px; }
+.pace-presets { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.pace-preset { display: grid; gap: 2px; justify-items: center; padding: 10px 4px; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
+.pace-preset strong { font-size: 15px; font-variant-numeric: tabular-nums; }
+.pace-preset small { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; }
+.pace-preset.on { border-color: var(--olive); background: #e9eddf; box-shadow: inset 0 0 0 1px var(--olive); }
+.pace-preset.locked, .pace-preset:disabled { background: #e4e0d8; border: 1px dashed #817b70; cursor: not-allowed; }
+.pace-free { border: 1px solid var(--line); border-radius: 12px; background: #fff; padding: 14px; }
+.pace-free.locked { display: flex; align-items: flex-start; gap: 10px; background: #f3efe6; border-style: dashed; font-size: 13px; line-height: 1.6; }
+.pace-free.locked svg { flex: none; margin-top: 3px; }
+.pace-stepper { display: flex; align-items: center; justify-content: center; gap: 18px; margin-bottom: 10px; }
+.pace-stepper .icon-btn { width: 38px; height: 38px; border: 1px solid var(--line); background: #f3efe6; }
+.pace-stepper output { font-size: 30px; font-weight: 800; font-variant-numeric: tabular-nums; min-width: 120px; text-align: center; }
+.pace-stepper output small { font-size: 14px; margin-left: 2px; }
+.pace-free input[type=range] { width: 100%; accent-color: var(--olive); }
+.pace-range-labels { display: flex; justify-content: space-between; font-size: 11px; margin-top: 4px; }
+.pace-summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 16px; }
+.pace-summary div { background: #f3efe6; border-radius: 10px; padding: 10px; }
+.pace-summary span { display: block; font-size: 11px; }
+.pace-summary b { font-size: 15px; font-variant-numeric: tabular-nums; }
+.pace-dialog .confirm-actions { margin-top: 18px; }
+.pace-dialog .confirm-actions .btn { flex: 1; margin: 0; }
+@media (max-width: 420px) { .pace-presets { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+
+/* ─── 이어서 달리기 ─── */
+.resume-card { display: grid; gap: 10px; border: 2px solid var(--accent); background: #fff4ea; border-radius: 14px; padding: 14px 16px; margin: 0 0 16px; }
+.resume-card strong { display: block; font-size: 15px; }
+.resume-card span { font-size: 13px; font-variant-numeric: tabular-nums; }
+.resume-card .btn { margin: 0; height: 46px; width: 100%; }
+.resume-card small { font-size: 12px; }

@@ -1,4 +1,5 @@
 import { getSettings } from './settings.js'
+import { customDrain } from './pacePlans.js'
 export const INTENSITIES = getSettings().intensities
 export const MILESTONES = [
   { level: 5, title: '부스터 해금', description: '8초 동안 속도 50% 증가' },
@@ -32,9 +33,13 @@ export function progressionFor(xp = 0) {
     nextUnlock: next ? { level: next.level, title: row.boost ? '부스터 강화' : '부스터 해금', description: `${next.boost}초 가속 · 체력 ${next.stamina}` } : null,
   }
 }
-export function trainingFor(xp, intensity = 'steady', anonymous = false) {
+export function trainingFor(xp, intensity = 'steady', anonymous = false, customPace = null) {
   const rules = getSettings()
   const growth = anonymous ? { level: null, maxStamina: rules.anonymousStamina, recoverySec: rules.anonymousRecovery, fastestPace: rules.anonymousPace, boosterUnlocked: false } : progressionFor(xp)
+  if (intensity === 'custom' && !anonymous && customPace) {
+    const paceSec = Math.max(growth.fastestPace, customPace)
+    return { ...growth, intensity: 'custom', intensityLabel: '내 페이스', paceSec, drainMultiplier: customDrain(paceSec, growth.fastestPace) }
+  }
   const effort = INTENSITIES.find((item) => item.id === intensity) || INTENSITIES[1]
   return { ...growth, intensity: effort.id, intensityLabel: effort.label, paceSec: growth.fastestPace + effort.extraPace, drainMultiplier: effort.drain }
 }

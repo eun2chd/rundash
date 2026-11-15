@@ -77,8 +77,8 @@ export const api = {
   async getProgression(userId) {
     return unwrap(await getSupabase().from('runner_progress').select('xp,total_distance_km,run_count').eq('user_id', userId).maybeSingle()) || { xp: 0, total_distance_km: 0, run_count: 0 }
   },
-  async startRun({ id, distanceKm, intensity }) {
-    return unwrap(await getSupabase().rpc('start_training_run', { p_run_id: id, p_target_km: distanceKm, p_intensity: intensity }))
+  async startRun({ id, distanceKm, intensity, customPace }) {
+    return unwrap(await getSupabase().rpc('start_training_run', { p_run_id: id, p_target_km: distanceKm, p_intensity: intensity, ...(intensity === 'custom' ? { p_pace_sec: customPace } : {}) }))
   },
   async markPractice(id) {
     unwrap(await getSupabase().rpc('mark_training_practice', { p_run_id: id }))
