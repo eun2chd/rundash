@@ -51,9 +51,13 @@
       .seo-intro h1 { font-size: 28px; margin: 0 0 12px; }
       .seo-intro h2 { font-size: 18px; margin: 28px 0 8px; }
       body { margin: 0; background: #efebe3; }
-      .boot-loader { display: flex; align-items: center; gap: 12px; margin-bottom: 28px; font-size: 14px; font-weight: 600; color: #48522c; }
-      .boot-loader span { position: relative; width: 120px; height: 3px; background: #ddd7c9; border-radius: 3px; overflow: hidden; }
-      .boot-loader span::after { content: ''; position: absolute; inset: 0 auto 0 0; width: 45%; background: #5f6b3c; animation: boot-slide 1.2s ease-in-out infinite; }
+      /* Same look as the app's loading screen, covering the crawler intro until React mounts. */
+      .boot-splash { position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; background: #efebe3; color: #212121; font-family: 'Pretendard Variable', Pretendard, sans-serif; text-align: center; }
+      .boot-splash strong { font-size: 32px; font-weight: 800; letter-spacing: -.055em; color: #48522c; }
+      .boot-splash strong em { font-style: italic; }
+      .boot-splash p { margin: 0; font-size: 12px; font-weight: 500; }
+      .boot-splash span { position: relative; width: 170px; height: 3px; background: #ddd7c9; border-radius: 3px; overflow: hidden; }
+      .boot-splash span::after { content: ''; position: absolute; inset: 0 auto 0 0; width: 45%; background: #5f6b3c; animation: boot-slide 1.2s ease-in-out infinite; }
       @keyframes boot-slide { from { transform: translateX(-110%); } to { transform: translateX(240%); } }
     </style>
   </head>
@@ -63,8 +67,8 @@
     <!-- End Google Tag Manager (noscript) -->
     <!-- React replaces this intro on mount; it gives crawlers and no-JS visitors real text. -->
     <div id="root">
+      <div class="boot-splash" role="status" aria-live="polite"><strong>Run <em>dash</em></strong><p>러너를 깨우고 있어요.</p><span aria-hidden="true"></span></div>
       <main class="seo-intro">
-        <p class="boot-loader" role="status"><span aria-hidden="true"></span>러너를 깨우고 있어요</p>
         <h1>Run dash 런대시 · 나만의 캐릭터와 같이 달리는 러닝 게임</h1>
         <p>같이 뛸 사람을 찾고 있나요? Run dash(런대시)는 나만의 3D 캐릭터를 만들어 온라인에서 다른 러너들과 함께 달리는 웹 러닝 게임입니다. 설치 없이 브라우저에서 바로 시작할 수 있어요.</p>
         <h2>일하는 동안에도 내 러너는 달리는 중</h2>
