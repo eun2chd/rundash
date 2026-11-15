@@ -10,7 +10,7 @@ export default function RoomPresence({ room }) {
   const members = [...(room.members || [])].sort((a,b) => Number(b.id === room.userId) - Number(a.id === room.userId) || a.nickname.localeCompare(b.nickname,'ko'))
   return <div className="room-presence-wrap">
     <button type="button" className="room-presence" disabled={!connected} aria-expanded={connected && open} aria-controls={listId} onClick={() => setOpen(value => !value)}>
-      <LuUsers /><span>{connected ? <>접속 <b>{room.online}</b>명 · 달리는 중 <b>{room.running}</b>명</> : '접속 인원 확인 중…'}</span>
+      <LuUsers /><span title={room.presenceError || undefined}>{connected ? <>접속 <b>{room.online}</b>명 · 달리는 중 <b>{room.running}</b>명</> : room.presenceConnection === 'reconnecting' ? '접속 인원 다시 연결 중…' : '접속 인원 확인 중…'}</span>
       <span className={`connection-dot ${connected ? 'online' : ''}`} />
       {open ? <LuChevronUp /> : <LuChevronDown />}
     </button>

@@ -25,6 +25,7 @@ export default function useRaceRoom({ userId, nickname, paused, profile, config,
   const [counts, setCounts] = useState({ online: 0, running: 0, members: [] })
   const [connection, setConnection] = useState('connecting')
   const [presenceConnection, setPresenceConnection] = useState('connecting')
+  const [presenceError, setPresenceError] = useState('')
   const [error, setError] = useState('')
   const [sending, setSending] = useState(false)
   const channelRef = useRef(null)
@@ -54,8 +55,22 @@ export default function useRaceRoom({ userId, nickname, paused, profile, config,
             })
         } else if (['CHANNEL_ERROR', 'TIMED_OUT', 'CLOSED'].includes(status)) setConnection('reconnecting')
       })
-    const connect = async () => {
-      await releasePreviousRoom(client, Promise.all([roomCleanup.get(client), pendingCleanup.current]))
+    let retryTimer
+    // A failed or timed-out join is thrown away and rebuilt with a fresh token instead of
+    // waiting on realtime-js's own rejoin, which keeps reusing the rejected join payload.
+    const retry = (current, attempt, reason) => {
+      if (!alive || channelRef.current !== current) return
+      console.warn('[rundash] presence join failed:', reason)
+      setPresenceError(String(reason || '')); setPresenceConnection('reconnecting'); setCounts({ online: 0, running: 0, members: [] })
+      channelRef.current = null
+      current?.teardown?.(); client.realtime._remove?.(current)
+      retryTimer = setTimeout(() => connect(attempt + 1), Math.min(8000, 1000 * 2 ** attempt))
+    }
+    const connect = async (attempt = 0) => {
+      await releasePreviousRoom(client, attempt ? Promise.resolve() : Promise.all([roomCleanup.get(client), pendingCleanup.current]))
+      if (!alive) return
+      // Make sure the socket carries the current session token before joining.
+      try { await client.realtime.setAuth?.() } catch { /* the join reports auth problems */ }
       if (!alive) return
       channel = client.channel(ROOM_TOPIC, { config: { presence: { key: userId } } })
       channelRef.current = channel
@@ -80,20 +95,23 @@ export default function useRaceRoom({ userId, nickname, paused, profile, config,
         const members = presenceMembers(channel.presenceState())
         setCounts({ members, online: members.length, running: members.filter(member => member.status === 'running').length })
       }
-      channel.on('presence', { event: 'sync' }, sync)
-        .subscribe((status) => {
-          if (!alive) return
+      const current = channel
+      current.on('presence', { event: 'sync' }, sync)
+      try {
+        current.subscribe((status, error) => {
+          if (!alive || channelRef.current !== current) return
           if (status === 'SUBSCRIBED') {
-            setPresenceConnection('connected')
-            channel.publishRunner()
-          } else if (['CHANNEL_ERROR', 'TIMED_OUT', 'CLOSED'].includes(status)) {
-            setPresenceConnection('reconnecting'); setCounts({ online: 0, running: 0, members: [] })
-          }
+            setPresenceConnection('connected'); setPresenceError('')
+            current.publishRunner()
+          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') retry(current, attempt, error?.message || status)
+          else if (status === 'CLOSED') retry(current, attempt, 'closed')
         })
+      } catch (error) { retry(current, attempt, error?.message) }
     }
-    connect().catch(() => { if (alive) setPresenceConnection('reconnecting') })
+    connect().catch((error) => { if (alive) { setPresenceConnection('reconnecting'); setPresenceError(String(error?.message || error)) } })
     return () => {
-      alive = false; channelRef.current = null
+      alive = false; clearTimeout(retryTimer)
+      channel = channelRef.current || channel; channelRef.current = null
       client.removeChannel(chat).catch(() => {})
       if (channel) { const release = client.removeChannel(channel).catch(() => {}); pendingCleanup.current = release; roomCleanup.set(client, release) }
     }
@@ -122,5 +140,5 @@ export default function useRaceRoom({ userId, nickname, paused, profile, config,
       return false
     } finally { sendingRef.current = false; setSending(false) }
   }, [nickname])
-  return { messages, ...counts, connection, presenceConnection, error, sending, send, userId, photos, loadPhoto }
+  return { messages, ...counts, connection, presenceConnection, presenceError, error, sending, send, userId, photos, loadPhoto }
 }
