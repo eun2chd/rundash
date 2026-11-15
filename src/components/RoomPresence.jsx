@@ -6,7 +6,7 @@ export default function RoomPresence({ room }) {
   const [open, setOpen] = useState(false)
   const [selected, setSelected] = useState(null)
   const listId = useId()
-  const connected = room.connection === 'connected'
+  const connected = room.presenceConnection === 'connected'
   const members = [...(room.members || [])].sort((a,b) => Number(b.id === room.userId) - Number(a.id === room.userId) || a.nickname.localeCompare(b.nickname,'ko'))
   return <div className="room-presence-wrap">
     <button type="button" className="room-presence" disabled={!connected} aria-expanded={connected && open} aria-controls={listId} onClick={() => setOpen(value => !value)}>

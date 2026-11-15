@@ -5,6 +5,17 @@ import { mergeMessages, presenceMembers } from './chat'
 import { weatherAt } from './weather'
 
 const roomCleanup = new WeakMap()
+const ROOM_TOPIC = 'rundash-running-room'
+const CLEANUP_WAIT_MS = 2000
+
+// The presence topic is shared by everyone, and realtime-js hands back an existing channel
+// with the same topic. Wait briefly for the previous run's channel to leave; if it has not
+// (leaving can take up to 10s on a flaky socket), drop it so a fresh channel is created.
+async function releasePreviousRoom(client, pending) {
+  await Promise.race([pending, new Promise(resolve => setTimeout(resolve, CLEANUP_WAIT_MS))])
+  const stale = client.getChannels().find(channel => channel.subTopic === ROOM_TOPIC || channel.topic === `realtime:${ROOM_TOPIC}`)
+  if (stale) { stale.teardown?.(); client.realtime._remove?.(stale) }
+}
 
 export default function useRaceRoom({ userId, nickname, paused, profile, config, sim, ready }) {
   const [photos, setPhotos] = useState({})
@@ -13,6 +24,7 @@ export default function useRaceRoom({ userId, nickname, paused, profile, config,
   const [messages, setMessages] = useState([])
   const [counts, setCounts] = useState({ online: 0, running: 0, members: [] })
   const [connection, setConnection] = useState('connecting')
+  const [presenceConnection, setPresenceConnection] = useState('connecting')
   const [error, setError] = useState('')
   const [sending, setSending] = useState(false)
   const channelRef = useRef(null)
@@ -24,10 +36,28 @@ export default function useRaceRoom({ userId, nickname, paused, profile, config,
     let alive = true
     const client = getSupabase()
     let channel
+    // Chat lives on its own channel with a per-mount topic: its database subscription is
+    // slower to confirm, and the head count must not wait for it or for an old channel.
+    const chat = client.channel(`rundash-chat:${userId}:${Date.now()}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'race_messages' }, ({ new: row }) => { if (alive) setMessages((previous) => mergeMessages(previous, [row])) })
+      // Moderation and retention deletes; with RLS on, the old record carries only the id.
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'race_messages' }, ({ old }) => { if (alive && old?.id) setMessages((previous) => previous.filter(message => message.id !== old.id)) })
+      .subscribe((status) => {
+        if (!alive) return
+        if (status === 'SUBSCRIBED') {
+          setConnection('connected')
+          client.from('race_messages').select('id,user_id,nickname,is_anonymous,message,created_at').order('created_at', { ascending: false }).limit(50)
+            .then(({ data, error: loadError }) => {
+              if (!alive) return
+              if (loadError) setError('이전 대화를 불러오지 못했어요. 잠시 후 다시 확인해 주세요.')
+              else { setMessages((previous) => mergeMessages(previous, data || [])); setError('') }
+            })
+        } else if (['CHANNEL_ERROR', 'TIMED_OUT', 'CLOSED'].includes(status)) setConnection('reconnecting')
+      })
     const connect = async () => {
-      await Promise.all([roomCleanup.get(client), pendingCleanup.current])
+      await releasePreviousRoom(client, Promise.all([roomCleanup.get(client), pendingCleanup.current]))
       if (!alive) return
-      channel = client.channel('rundash-running-room', { config: { presence: { key: userId } } })
+      channel = client.channel(ROOM_TOPIC, { config: { presence: { key: userId } } })
       channelRef.current = channel
       const metadata = () => {
         const { profile: p, config: c, sim: source, ready: available } = runnerRef.current
@@ -51,37 +81,29 @@ export default function useRaceRoom({ userId, nickname, paused, profile, config,
         setCounts({ members, online: members.length, running: members.filter(member => member.status === 'running').length })
       }
       channel.on('presence', { event: 'sync' }, sync)
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'race_messages' }, ({ new: row }) => { if (alive) setMessages((previous) => mergeMessages(previous, [row])) })
-        // Moderation and retention deletes; with RLS on, the old record carries only the id.
-        .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'race_messages' }, ({ old }) => { if (alive && old?.id) setMessages((previous) => previous.filter(message => message.id !== old.id)) })
         .subscribe((status) => {
           if (!alive) return
           if (status === 'SUBSCRIBED') {
-            setConnection('connected')
+            setPresenceConnection('connected')
             channel.publishRunner()
-            client.from('race_messages').select('id,user_id,nickname,is_anonymous,message,created_at').order('created_at', { ascending: false }).limit(50)
-              .then(({ data, error: loadError }) => {
-                if (!alive) return
-                if (loadError) setError('이전 대화를 불러오지 못했어요. 잠시 후 다시 확인해 주세요.')
-                else { setMessages((previous) => mergeMessages(previous, data || [])); setError('') }
-              })
           } else if (['CHANNEL_ERROR', 'TIMED_OUT', 'CLOSED'].includes(status)) {
-            setConnection('reconnecting'); setCounts({ online: 0, running: 0, members: [] })
+            setPresenceConnection('reconnecting'); setCounts({ online: 0, running: 0, members: [] })
           }
         })
     }
-    connect().catch(() => { if (alive) setConnection('reconnecting') })
+    connect().catch(() => { if (alive) setPresenceConnection('reconnecting') })
     return () => {
       alive = false; channelRef.current = null
+      client.removeChannel(chat).catch(() => {})
       if (channel) { const release = client.removeChannel(channel).catch(() => {}); pendingCleanup.current = release; roomCleanup.set(client, release) }
     }
   }, [userId])
   useEffect(() => {
-    if (connection !== 'connected') return
+    if (presenceConnection !== 'connected') return
     channelRef.current?.publishRunner?.()
     const timer = setInterval(() => channelRef.current?.publishRunner?.(), 3000)
     return () => clearInterval(timer)
-  }, [paused, nickname, connection, ready])
+  }, [paused, nickname, presenceConnection, ready])
   const loadPhoto = useCallback(id => {
     if (id === userId) { setPhotos(previous => ({ ...previous, [id]: runnerRef.current.profile?.avatar_image || null })); return }
     channelRef.current?.send({ type: 'broadcast', event: 'runner-photo-request', payload: { target: id, requester: userId } }).catch(() => {})
@@ -100,5 +122,5 @@ export default function useRaceRoom({ userId, nickname, paused, profile, config,
       return false
     } finally { sendingRef.current = false; setSending(false) }
   }, [nickname])
-  return { messages, ...counts, connection, error, sending, send, userId, photos, loadPhoto }
+  return { messages, ...counts, connection, presenceConnection, error, sending, send, userId, photos, loadPhoto }
 }
