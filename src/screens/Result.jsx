@@ -1,17 +1,22 @@
+import { useRef, useState } from 'react'
 import CharacterPreview from '../components/CharacterPreview'
+import ShareCardDialog from '../components/ShareCardDialog'
 import { fmtPace, fmtTime } from '../lib/pace'
-import { LuTrophy, LuFlag } from 'react-icons/lu'
+import { LuTrophy, LuFlag, LuShare2 } from 'react-icons/lu'
 import GrowthCard from '../components/GrowthCard'
 import { getSettings } from '../lib/settings'
+import { shareCardContent } from '../lib/shareCard'
 
 export default function Result({ result, profile, persisted = true, onAgain }) {
   const r = result
+  const characterCanvas = useRef(null)
+  const [sharing, setSharing] = useState(false)
   const growth = r.growth || { xpEarned: 0, xpBefore: 0, xpAfter: 0 }
   const unlocked = getSettings().levels.filter((row, index, rows) => row.level > (growth.levelBefore || 1) && row.level <= (growth.levelAfter || 1) && row.boost > (rows[index - 1]?.boost || 0)).map(row => ({ level: row.level, title: '부스터 해금과 강화', description: `${row.boost}초 가속` }))
   return (
     <div className="result-screen">
       <div className="result-stage">
-        <CharacterPreview color={profile.color} skin={profile.skin} hair={profile.hair} outfit={profile.outfit} nickname={profile.nickname} running={false} popKey={1} />
+        <CharacterPreview color={profile.color} skin={profile.skin} hair={profile.hair} outfit={profile.outfit} nickname={profile.nickname} running={false} popKey={1} onCanvas={(canvas) => { characterCanvas.current = canvas }} />
       </div>
       <div className="card result-card">
         <div className="eyebrow">{r.completed ? 'FINISH' : 'STOPPED'}</div>
@@ -37,6 +42,8 @@ export default function Result({ result, profile, persisted = true, onAgain }) {
         </div>
         <p className="note">{persisted ? '러닝 기록이 내 계정에 저장됐어요.' : '익명 체험 기록은 저장되지 않아요. 새로고침하면 초기화돼요.'}</p>
         <button className="btn primary block" onClick={onAgain}>다시 달리기</button>
+        <button className="btn ghost block result-share" onClick={() => setSharing(true)}><LuShare2 />기록 공유하기</button>
+        {sharing && <ShareCardDialog content={shareCardContent({ result: r, profile, persisted })} getCharacter={() => characterCanvas.current} onClose={() => setSharing(false)} />}
       </div>
     </div>
   )

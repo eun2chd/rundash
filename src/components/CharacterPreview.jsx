@@ -55,13 +55,16 @@ function Burst({ popKey, color }) {
   )
 }
 
-export default function CharacterPreview({ color, skin, hair, outfit, nickname, activity, revealed = true, popKey = 0, running = true, bg = '#2a2b24' }) {
+// `onCanvas` receives the WebGL canvas; the drawing buffer is then kept so it can be
+// copied into a share card.
+export default function CharacterPreview({ color, skin, hair, outfit, nickname, activity, revealed = true, popKey = 0, running = true, bg = '#2a2b24', onCanvas }) {
   const getDistance = () => (running ? (performance.now() / 1000) * 1.6 : 0)
   return (
     <Canvas
       camera={{ position: [0, 1.5, 4.4], fov: 36 }}
       dpr={[1, 2]}
-      onCreated={({ camera }) => camera.lookAt(0, 1.05, 0)}
+      gl={onCanvas ? { preserveDrawingBuffer: true } : undefined}
+      onCreated={({ camera, gl }) => { camera.lookAt(0, 1.05, 0); onCanvas?.(gl.domElement) }}
     >
       <color attach="background" args={[bg]} />
       <PreviewFraming activity={activity} />
