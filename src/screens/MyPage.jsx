@@ -3,6 +3,7 @@ import { LuUser, LuLock, LuActivity, LuCamera, LuTrash2, LuUserX } from 'react-i
 import { api } from '../lib/api'
 import { isValidPassword, PASSWORD_RULE } from '../lib/password'
 import GrowthCard from '../components/GrowthCard'
+import Captcha, { captchaEnabled } from '../components/Captcha'
 import { fmtPace, fmtTime } from '../lib/pace'
 
 const TAB_EYEBROWS = { info: 'PROFILE', password: 'SECURITY', records: 'RUNNING HISTORY', withdraw: 'ACCOUNT' }
@@ -37,6 +38,9 @@ export default function MyPage({ user, profile, onProfile, confirmAction, onNavi
   const [loadError, setLoadError] = useState(false)
   const [refresh, setRefresh] = useState(0)
   const [withdrawText, setWithdrawText] = useState('')
+  const [captchaToken, setCaptchaToken] = useState('')
+  const captcha = useRef(null)
+  const captchaPending = captchaEnabled && !captchaToken
   const fileInput = useRef(null)
   const anonymous = user.is_anonymous
   const nickname = profile?.nickname || user.user_metadata?.nickname || '익명 러너'
@@ -74,13 +78,15 @@ export default function MyPage({ user, profile, onProfile, confirmAction, onNavi
   }
   const changePassword = async (event) => {
     event.preventDefault()
-    if (busy || !current || !isValidPassword(password) || password !== repeat) return
+    if (busy || captchaPending || !current || !isValidPassword(password) || password !== repeat) return
     setBusy(true); setError(''); setNotice('')
+    let requested = false
     try {
       if (!await confirmAction({ title: '비밀번호를 변경할까요?', description: '다음 로그인부터 새 비밀번호를 사용해 주세요.', confirmLabel: '변경하기' })) return
-      await api.changePassword(current, password)
+      requested = true
+      await api.changePassword(current, password, captchaToken)
       setCurrent(''); setPassword(''); setRepeat(''); setNotice('비밀번호를 변경했어요.')
-    } catch { setError('변경하지 못했어요. 현재 비밀번호와 새 비밀번호 규칙을 확인해 주세요.') } finally { setBusy(false) }
+    } catch (err) { setError(/captcha/i.test(err?.message || '') ? '보안 확인이 만료됐어요. 잠시 후 다시 시도해 주세요.' : '변경하지 못했어요. 현재 비밀번호와 새 비밀번호 규칙을 확인해 주세요.') } finally { setBusy(false); if (requested) captcha.current?.reset() }
   }
   return <div className="mypage-screen">
     <div className="mypage-layout">
@@ -108,7 +114,7 @@ export default function MyPage({ user, profile, onProfile, confirmAction, onNavi
               <label className="field"><span>이메일</span><input value={user.email || ''} readOnly /></label>
             </div>
             <div className="account-details">
-              <div><span>이메일 인증</span><strong>{user.email_confirmed_at ? '인증 완료' : '인증 대기'}</strong>{!user.email_confirmed_at && <button className="link" disabled={busy} onClick={async () => { setBusy(true); setError(''); try { await api.resendVerification(user.email); setNotice('인증 이메일을 다시 보냈어요.') } catch { setError('메일을 보내지 못했어요. 잠시 후 다시 시도해 주세요.') } finally { setBusy(false) } }}>인증 메일 다시 받기</button>}</div>
+              <div><span>이메일 인증</span><strong>{user.email_confirmed_at ? '인증 완료' : '인증 대기'}</strong>{!user.email_confirmed_at && <><button className="link" disabled={busy || captchaPending} onClick={async () => { setBusy(true); setError(''); try { await api.resendVerification(user.email, captchaToken); setNotice('인증 이메일을 다시 보냈어요.') } catch { setError('메일을 보내지 못했어요. 잠시 후 다시 시도해 주세요.') } finally { setBusy(false); captcha.current?.reset() } }}>인증 메일 다시 받기</button><Captcha ref={captcha} onToken={setCaptchaToken} /></>}</div>
               <div><span>가입일</span><strong>{new Date(user.created_at).toLocaleDateString('ko-KR')}</strong></div>
             </div>
             <div className="account-actions">
@@ -126,7 +132,7 @@ export default function MyPage({ user, profile, onProfile, confirmAction, onNavi
             <label className="field"><span>확인을 위해 <b>{withdrawWord}</b>을(를) 입력해 주세요.</span><input value={withdrawText} onChange={e => setWithdrawText(e.target.value)} autoComplete="off" disabled={busy} /></label>
             <button className="btn danger" disabled={busy || withdrawText.trim() !== withdrawWord}>{busy ? '처리 중…' : '회원 탈퇴'}</button>
           </form>}
-          {tab === 'password' && <form className="account-password" onSubmit={changePassword}><p>계정을 안전하게 지킬 새 비밀번호를 정해 주세요.</p><label className="field"><span>현재 비밀번호</span><input type="password" autoComplete="current-password" value={current} onChange={e => setCurrent(e.target.value)} required disabled={busy} /></label><label className="field"><span>새 비밀번호</span><input type="password" autoComplete="new-password" value={password} onChange={e => setPassword(e.target.value)} required disabled={busy} /><small>{PASSWORD_RULE}</small></label><label className="field"><span>새 비밀번호 확인</span><input type="password" autoComplete="new-password" value={repeat} onChange={e => setRepeat(e.target.value)} required disabled={busy} />{repeat && password !== repeat && <small role="status">비밀번호가 일치하지 않아요.</small>}</label><button className="btn primary" disabled={busy || !current || !isValidPassword(password) || password !== repeat}>{busy ? '변경 중…' : '비밀번호 변경'}</button></form>}
+          {tab === 'password' && <form className="account-password" onSubmit={changePassword}><p>계정을 안전하게 지킬 새 비밀번호를 정해 주세요.</p><label className="field"><span>현재 비밀번호</span><input type="password" autoComplete="current-password" value={current} onChange={e => setCurrent(e.target.value)} required disabled={busy} /></label><label className="field"><span>새 비밀번호</span><input type="password" autoComplete="new-password" value={password} onChange={e => setPassword(e.target.value)} required disabled={busy} /><small>{PASSWORD_RULE}</small></label><label className="field"><span>새 비밀번호 확인</span><input type="password" autoComplete="new-password" value={repeat} onChange={e => setRepeat(e.target.value)} required disabled={busy} />{repeat && password !== repeat && <small role="status">비밀번호가 일치하지 않아요.</small>}</label><Captcha ref={captcha} onToken={setCaptchaToken} /><button className="btn primary" disabled={busy || captchaPending || !current || !isValidPassword(password) || password !== repeat}>{busy ? '변경 중…' : captchaPending ? '보안 확인 중…' : '비밀번호 변경'}</button></form>}
           {tab === 'records' && (loadError ? <div className="account-empty"><p>기록을 불러오지 못했어요.</p><button className="btn ghost" onClick={() => setRefresh(v => v + 1)}>다시 불러오기</button></div> : !profile ? <p>러너를 만들고 첫 러닝을 시작해 보세요.</p> : !data ? <p role="status">러닝 기록을 불러오고 있어요…</p> : <><div className="account-stats"><div><span>누적 거리</span><strong>{Number(data.growth.total_distance_km || 0).toFixed(2)}<small> km</small></strong></div><div><span>러닝 횟수</span><strong>{data.growth.run_count || 0}<small> 회</small></strong></div></div><GrowthCard xp={data.growth.xp} />{data.runs.length ? <div className="account-runs">{data.runs.map(run => <article key={run.id}><div><strong>{run.completed ? '완주한 러닝' : '여기까지 달렸어요'}</strong><time>{new Date(run.createdAt).toLocaleDateString('ko-KR')}</time></div><p>{Number(run.distanceKm || 0).toFixed(2)}km · {fmtTime(run.elapsedSec || 0)} · {fmtPace(run.paceSec || 0)}/km</p></article>)}</div> : <div className="account-empty"><LuActivity /><h3>첫 발걸음을 기다리고 있어요</h3><p>러닝을 마치면 이곳에 기록이 쌓여요.</p><button className="btn primary" onClick={() => onNavigate('setup')}>러닝 준비하기</button></div>}</>)}
         </>}
       </section>

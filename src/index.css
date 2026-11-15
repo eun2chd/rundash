@@ -1077,3 +1077,5 @@ button.room-presence:focus-visible { outline: 2px solid #fff6d5; outline-offset:
 .chat-report-reasons button { font-size: 11px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 99px; background: #fff; }
 .chat-report-reasons button:hover:not(:disabled) { border-color: var(--olive); }
 .chat-notice { color: var(--olive-d); }
+.captcha { margin: 4px 0 12px; }
+.captcha:empty { display: none; }

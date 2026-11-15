@@ -3,6 +3,11 @@ import { getSupabase } from './supabase'
 const unwrap = ({ data, error }) => { if (error) throw error; return data }
 const profileFromRow = (p) => p && ({ ...p, userId: p.id, updatedAt: p.updated_at })
 const runFromRow = (r) => ({ ...r.details, id: r.id, userId: r.user_id, createdAt: r.created_at })
+// Supabase returns this when the Turnstile token is missing, expired or reused.
+export function authErrorMessage(error) {
+  return /captcha/i.test(error?.message || '') ? '보안 확인이 만료됐어요. 잠시 후 다시 시도해 주세요.' : error?.message
+}
+
 export const api = {
   async locateFriend(id) { return unwrap(await getSupabase().rpc('locate_running_friend', { p_target: id })) },
   async socialTick({ runId, distance, speed, paused, publicLocation, allowInvites, activity = 'rest', shareActivity = true }) {
@@ -37,14 +42,14 @@ export const api = {
   async adminReply(id, status, reply) { unwrap(await getSupabase().rpc('admin_reply_support', { p_id: id, p_status: status, p_reply: reply })) },
   async adminSaveSettings(value, version) { return unwrap(await getSupabase().rpc('admin_save_settings', { p_value: value, p_version: version })) },
   async adminAudit(page = 0) { return unwrap(await getSupabase().rpc('admin_audit_list', { p_page: page })) },
-  async signIn({ email, password }) { return unwrap(await getSupabase().auth.signInWithPassword({ email, password })).user },
-  async signUp({ email, password, nickname, consent }) { if (!isValidPassword(password)) throw new Error('비밀번호는 8자 이상, 특수문자를 1개 이상 포함해 주세요.'); return unwrap(await getSupabase().auth.signUp({ email, password, options: { emailRedirectTo: window.location.origin, data: { nickname, consent } } })) },
-  async signInAnonymously() { return unwrap(await getSupabase().auth.signInAnonymously()).user },
-  async requestPasswordReset(email) {
-    unwrap(await getSupabase().auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/?auth=reset-password` }))
+  async signIn({ email, password, captchaToken }) { return unwrap(await getSupabase().auth.signInWithPassword({ email, password, options: { captchaToken } })).user },
+  async signUp({ email, password, nickname, consent, captchaToken }) { if (!isValidPassword(password)) throw new Error('비밀번호는 8자 이상, 특수문자를 1개 이상 포함해 주세요.'); return unwrap(await getSupabase().auth.signUp({ email, password, options: { emailRedirectTo: window.location.origin, data: { nickname, consent }, captchaToken } })) },
+  async signInAnonymously(captchaToken) { return unwrap(await getSupabase().auth.signInAnonymously({ options: { captchaToken } })).user },
+  async requestPasswordReset(email, captchaToken) {
+    unwrap(await getSupabase().auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/?auth=reset-password`, captchaToken }))
   },
-  async resendVerification(email) {
-    unwrap(await getSupabase().auth.resend({ type: 'signup', email, options: { emailRedirectTo: window.location.origin } }))
+  async resendVerification(email, captchaToken) {
+    unwrap(await getSupabase().auth.resend({ type: 'signup', email, options: { emailRedirectTo: window.location.origin, captchaToken } }))
   },
   async updatePassword(password) { if (!isValidPassword(password)) throw new Error('비밀번호는 8자 이상, 특수문자를 1개 이상 포함해 주세요.'); return unwrap(await getSupabase().auth.updateUser({ password })) },
   async signOut() { unwrap(await getSupabase().auth.signOut()) },
@@ -63,10 +68,10 @@ export const api = {
     if (!user || user.is_anonymous) throw new Error('정식 계정으로 로그인해 주세요.')
     return profileFromRow(unwrap(await getSupabase().from('profiles').update({ avatar_image: image, updated_at: new Date().toISOString() }).eq('id', user.id).select().single()))
   },
-  async changePassword(currentPassword, password) {
+  async changePassword(currentPassword, password, captchaToken) {
     const { user } = unwrap(await getSupabase().auth.getUser())
     if (!user || user.is_anonymous) throw new Error('정식 계정으로 로그인해 주세요.')
-    unwrap(await getSupabase().auth.signInWithPassword({ email: user.email, password: currentPassword }))
+    unwrap(await getSupabase().auth.signInWithPassword({ email: user.email, password: currentPassword, options: { captchaToken } }))
     return api.updatePassword(password)
   },
   async getProgression(userId) {

@@ -1,7 +1,8 @@
 import { isValidPassword, PASSWORD_RULE } from '../lib/password'
-import { useState } from 'react'
-import { api } from '../lib/api'
+import { useRef, useState } from 'react'
+import { api, authErrorMessage } from '../lib/api'
 import Logo from '../components/Logo'
+import Captcha, { captchaEnabled } from '../components/Captcha'
 
 const POLICY_VERSION = '2026-11-15'
 
@@ -19,6 +20,9 @@ export default function SignUp({ onLogin, onBack, onVerify, confirmAction }) {
   const [agreements, setAgreements] = useState({ age: false, terms: false, privacy: false })
   const agreedAll = agreements.age && agreements.terms && agreements.privacy
   const toggleAgreement = (key) => (e) => { setAgreements(previous => ({ ...previous, [key]: e.target.checked })); setError('') }
+  const [captchaToken, setCaptchaToken] = useState('')
+  const captcha = useRef(null)
+  const captchaPending = captchaEnabled && !captchaToken
   const name = nickname.trim()
   const validNickname = /^[가-힣a-zA-Z0-9_]{2,10}$/.test(name)
   const checking = nicknameStatus === 'checking'
@@ -51,8 +55,10 @@ export default function SignUp({ onLogin, onBack, onVerify, confirmAction }) {
     if (!isValidPassword(password)) return setError('비밀번호는 8자 이상, 특수문자를 1개 이상 포함해 주세요.')
     if (password !== passwordConfirm) return setError('비밀번호가 서로 달라요. 다시 확인해 주세요.')
     if (!agreedAll) return setError('만 14세 이상 확인과 필수 약관 동의를 체크해 주세요.')
+    if (captchaPending) return setError('보안 확인이 끝날 때까지 잠시만 기다려 주세요.')
     setLoading(true)
     setError('')
+    let requested = false
     try {
       if (!await confirmAction({ title: '회원가입을 진행할까요?', description: '가입 완료 후 이메일 인증 안내 또는 러너 만들기 화면으로 이동합니다.', confirmLabel: '회원가입', cancelLabel: '더 확인하기' })) return
       if (await api.isNicknameTaken(name)) {
@@ -60,13 +66,14 @@ export default function SignUp({ onLogin, onBack, onVerify, confirmAction }) {
         setNicknameError('이미 사용 중인 닉네임이에요. 다른 이름을 정해 주세요.')
         return
       }
-      const data = await api.signUp({ email: email.trim(), password, nickname: name, consent: { age14: true, terms: POLICY_VERSION, privacy: POLICY_VERSION, agreedAt: new Date().toISOString() } })
+      requested = true
+      const data = await api.signUp({ email: email.trim(), password, nickname: name, consent: { age14: true, terms: POLICY_VERSION, privacy: POLICY_VERSION, agreedAt: new Date().toISOString() }, captchaToken })
       if (data.session) await onLogin(data.user)
       else { setSent(true); setPassword(''); setPasswordConfirm('') }
     } catch (err) {
       const messages = { 'User already registered': '이미 가입한 이메일이에요. 로그인해 주세요.', 'Email rate limit exceeded': '이메일 발송 요청이 많아요. 잠시 후 다시 시도해 주세요.' }
-      setError(messages[err.message] || err.message || '가입하지 못했어요. 다시 시도해 주세요.')
-    } finally { setLoading(false) }
+      setError(messages[err.message] || authErrorMessage(err) || '가입하지 못했어요. 다시 시도해 주세요.')
+    } finally { setLoading(false); if (requested) captcha.current?.reset() }
   }
 
   return (
@@ -107,8 +114,9 @@ export default function SignUp({ onLogin, onBack, onVerify, confirmAction }) {
             <label><input type="checkbox" checked={agreements.terms} onChange={toggleAgreement('terms')} /> <span>(필수) <a href="/terms" target="_blank" rel="noopener">이용약관</a>에 동의합니다.</span></label>
             <label><input type="checkbox" checked={agreements.privacy} onChange={toggleAgreement('privacy')} /> <span>(필수) <a href="/privacy" target="_blank" rel="noopener">개인정보 수집·이용과 국외 이전</a> 내용을 확인했습니다.</span></label>
           </fieldset>
+          <Captcha ref={captcha} onToken={setCaptchaToken} />
           {error && <p className="error" role="alert">{error}</p>}
-          <button className="btn primary block" disabled={loading || !available || !passwordsMatch || !agreedAll}>{loading ? '가입하는 중…' : '가입하고 러너 만들기 →'}</button>
+          <button className="btn primary block" disabled={loading || !available || !passwordsMatch || !agreedAll || captchaPending}>{loading ? '가입하는 중…' : '가입하고 러너 만들기 →'}</button>
           <p className="note">닉네임은 캐릭터 저장 시 확정돼요.</p>
         </form>}
       </section>
