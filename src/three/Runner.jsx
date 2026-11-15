@@ -47,6 +47,7 @@ export default function Runner({
   const head = useRef()
   const kneelT = useRef(0)
   const boostFx = useRef()
+  const rhythmFx = useRef()
   const outfit = normalizeOutfit(outfitInput)
 
   useFrame(({ camera }, dt) => {
@@ -59,6 +60,10 @@ export default function Runner({
     const act = getAction ? getAction() : null
     const tired = act?.tired || 0
     if (boostFx.current) boostFx.current.visible = !!act?.boosting
+    if (rhythmFx.current) {
+      rhythmFx.current.visible = !!act?.rhythmBoosting
+      rhythmFx.current.rotation.y += dt * 5
+    }
     kneelT.current += ((act?.kneel ? 1 : 0) - kneelT.current) * (1 - Math.exp(-dt * 6))
     const k = kneelT.current
     const mix = (a, b) => a + (b - a) * k
@@ -97,7 +102,17 @@ export default function Runner({
 
   return (
     <group ref={root}>
+      <group ref={rhythmFx} visible={false}>
+        {[0, 1, 2].map(i => <mesh key={i} position-y={.15 + i * .08} rotation-x={-Math.PI / 2} rotation-z={i * 2.1}>
+          <torusGeometry args={[.72 + i * .12, .018, 5, 28, Math.PI * 1.2]} />
+          <meshBasicMaterial color={i === 1 ? '#fff8e6' : '#f4d27a'} transparent opacity={.55 - i * .1} depthWrite={false} />
+        </mesh>)}
+      </group>
       <group ref={boostFx} visible={false}>
+        {[1, 2, 3].map(i => <mesh key={`trail-${i}`} position={[0, .85, -i * .32]} scale={[1, 1, .35]}>
+          <capsuleGeometry args={[.25, .3, 4, 10]} />
+          <meshBasicMaterial color="#f4d27a" transparent opacity={.16 / i} depthWrite={false} />
+        </mesh>)}
         {[-.24, 0, .24].map((x) => <mesh key={x} position={[x, .18, -.5]} rotation-x={Math.PI / 2}><capsuleGeometry args={[.035, .65, 4, 8]} /><meshBasicMaterial color="#f4d27a" transparent opacity={.8} /></mesh>)}
         <mesh position-y={.12} rotation-x={-Math.PI / 2}><ringGeometry args={[.62, .7, 32]} /><meshBasicMaterial color="#e8c547" /></mesh>
       </group>

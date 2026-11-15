@@ -6,9 +6,13 @@ import { poseAt } from './track'
 const tmp = { pos: new THREE.Vector3(), tan: new THREE.Vector3() }
 
 // 캐릭터 뒤에서 따라가는 3인칭 카메라 (방향만 부드럽게 보간 → 배속이 커도 뒤처지지 않음)
-export default function CameraRig({ getDistance, zoom = 1 }) {
+export default function CameraRig({ getDistance, zoom = 1, getBoost }) {
   const st = useRef({ tan: null, look: new THREE.Vector3() })
+  const reducedMotion = useRef(window.matchMedia('(prefers-reduced-motion: reduce)'))
   useFrame(({ camera }, dt) => {
+    const targetFov = 55 + (reducedMotion.current.matches ? 0 : (getBoost?.() || 0) * 13)
+    const fov = THREE.MathUtils.lerp(camera.fov, targetFov, 1 - Math.exp(-dt * 7))
+    if (Math.abs(camera.fov - fov) > .001) { camera.fov = fov; camera.updateProjectionMatrix() }
     poseAt(getDistance(), 0, tmp)
     const s = st.current
     if (!s.tan) s.tan = tmp.tan.clone()

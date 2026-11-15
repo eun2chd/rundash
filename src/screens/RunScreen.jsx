@@ -18,6 +18,7 @@ import { BIOME_ICONS, CHEER_ICONS, CHEER_KEYS, ITEM_ICONS } from '../lib/icons'
 import Hud from '../components/Hud'
 import Loading from '../components/Loading'
 import { judgeRhythm } from '../lib/rhythm'
+import { applyRhythmBoost } from '../lib/rhythmBoost'
 import useRaceRoom from '../lib/useRaceRoom'
 import { getSettings } from '../lib/settings'
 import { advanceElapsed, restoreSimulation, checkpointKey } from '../lib/runClock'
@@ -26,6 +27,7 @@ import { formationOffset } from '../lib/formation'
 import { weatherAt } from '../lib/weather'
 import { takeNewInvites } from '../lib/invites'
 import WeatherEffects from '../three/WeatherEffects'
+import RhythmSpeedEffects from '../components/RhythmSpeedEffects'
 
 
 // 시뮬레이션 진행: 거리·체력·탈진/회복 (배속 적용)
@@ -40,7 +42,7 @@ const Scene = memo(function Scene({ sim, rhythm, profile, activity, ghosts, getM
       <SimDriver tick={tick} />
       <World biome={biome} weather={weather} />
       {weather.precipitation && <WeatherEffects key={weather.id} weather={weather} getDistance={getMyDist} />}
-      <CameraRig getDistance={cameraDistance} />
+      <CameraRig getDistance={cameraDistance} getBoost={() => !sim.current.paused && !sim.current.resting && !sim.current.finished ? Math.min(1, (sim.current.rhythmBoostLeft || 0) / .5) : 0} />
       <Runner
         getDistance={getMyVisualDist}
         lane={myLane}
@@ -118,7 +120,7 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
   }, config.resume)
   const getMyDist = useCallback(() => sim.current.dist, [])
   const getGhostDist = useCallback((g) => g.start + (sim.current.elapsed * 1000) / g.paceSec, [])
-  const getMyAction = useCallback(() => ({ kneel: sim.current.resting, tired: tiredFor(sim.current.stamina, sim.current.maxStamina), boosting: sim.current.boostLeft > 0 }), [])
+  const getMyAction = useCallback(() => ({ kneel: sim.current.resting, tired: tiredFor(sim.current.stamina, sim.current.maxStamina), boosting: sim.current.boostLeft > 0 || sim.current.rhythmBoostLeft > 0, rhythmBoosting: sim.current.rhythmBoostLeft > 0 }), [])
 
   const [ready, setReady] = useState(false)
   const [items, setItems] = useState(course.items)
@@ -375,11 +377,14 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
   }
 
   const hitBeat = () => {
-    if (sim.current.paused || sim.current.resting) return
+    tick()
+    if (!ready || sim.current.finished || sim.current.paused || sim.current.resting) return
     const r = rhythm.current
     const judgment = judgeRhythm(r, stats.current)
     if (!judgment) return
-    setJudge({ ...judgment, at: Date.now() })
+    const boosted = applyRhythmBoost(sim.current, judgment.res)
+    setJudge({ ...judgment, boosted, at: Date.now() })
+    if (boosted) toast('리듬 부스트! 3초 동안 속도 +5%', 'good', LuZap)
     bump()
   }
 
@@ -532,6 +537,7 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
           onCollect={onCollect}
         />
       </Canvas>
+      {ready && <RhythmSpeedEffects sim={sim} />}
 
       {ready ? (
         <Hud

@@ -43,6 +43,10 @@ export function restoreSimulation(base, checkpoint, now = Date.now()) {
   if (!validCheckpoint(checkpoint, checkpoint?.runId)) return base
   const keys = ['elapsed','dist','stamina','restLeft','restSec','exhaust','boostLeft','boostCooldownLeft','boostUses','paused','resting','finished','practice']
   const restored = { ...base }
+  for (const key of ['rhythmCharge', 'rhythmBoostLeft']) {
+    const value = checkpoint.sim[key]
+    restored[key] = Number.isFinite(value) ? Math.max(0, Math.min(key === 'rhythmCharge' ? 4 : 3, value)) : 0
+  }
   for (const key of keys) if (checkpoint.sim[key] !== undefined) restored[key] = checkpoint.sim[key]
   restored.dist = Math.min(base.totalM, restored.dist)
   restored.stamina = Math.min(base.maxStamina, restored.stamina)

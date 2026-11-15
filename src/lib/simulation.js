@@ -1,5 +1,6 @@
 import { speedMultFor } from './stamina.js'
 import { getSettings } from './settings.js'
+import { advanceRhythmBoost } from './rhythmBoost.js'
 
 export function activateBooster(s) {
   if (!s.boosterUnlocked || s.paused || s.finished || s.resting || s.boostCooldownLeft > 0 || s.stamina <= s.boosterCost) return false
@@ -18,6 +19,7 @@ export function advanceSimulation(s, dt, weatherMultiplier = 1) {
   s.boostLeft = Math.max(0, s.boostLeft - step)
   s.boostCooldownLeft = Math.max(0, s.boostCooldownLeft - step)
   if (s.resting) {
+    s.rhythmBoostLeft = 0
     s.boostLeft = 0
     s.restLeft = Math.max(0, s.restLeft - step)
     s.restSec += step
@@ -28,12 +30,13 @@ export function advanceSimulation(s, dt, weatherMultiplier = 1) {
   }
   const multiplier = speedMultFor(s.stamina, s.maxStamina)
   const boostBonus = getSettings().boostMultiplier - 1
-  s.speedMult = multiplier * (boostSeconds > 0 ? 1 + boostBonus : 1)
-  const dd = Math.min(s.totalM - s.dist, s.speed * multiplier * (step + boostSeconds * boostBonus))
+  const rhythmBonus = advanceRhythmBoost(s, step)
+  s.speedMult = multiplier * (boostSeconds > 0 ? 1 + boostBonus : 1) * (1 + rhythmBonus)
+  const dd = Math.min(s.totalM - s.dist, s.speed * multiplier * (step + boostSeconds * boostBonus) * (1 + rhythmBonus))
   s.dist += dd
   s.stamina = Math.max(0, s.stamina - dd / 1000 * s.drain * weatherMultiplier)
   if (s.dist >= s.totalM) s.finished = true
   else if (s.stamina <= 0) {
-    s.resting = true; s.restLeft = s.recoverySec; s.exhaust++; s.boostLeft = 0
+    s.resting = true; s.restLeft = s.recoverySec; s.exhaust++; s.boostLeft = 0; s.rhythmBoostLeft = 0
   }
 }

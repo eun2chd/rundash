@@ -2,7 +2,7 @@
 const scenes = new WeakMap()
 const overlaps = (a, b) => a.left < b.right + 6 && a.right + 6 > b.left && a.top < b.bottom + 6 && a.bottom + 6 > b.top
 export function placeCloud(name, width, height, obstacles, viewport) {
-  const preferred = { left: name.right - 8, top: name.top - height - 8 }
+  const preferred = { left: name.right + 8, top: name.top - height - 8 }
   const candidates = []
   for (let top = 8; top + height <= viewport.height - 8; top += 12) {
     for (const left of [preferred.left, name.left - width + 8, ...Array.from({ length: Math.ceil(viewport.width / 24) }, (_, i) => 8 + i * 24)]) {
@@ -35,7 +35,7 @@ export function registerActivity(scene, tag, cloud) {
       const position = placeCloud(anchor, box.width, box.height, obstacles, { width: window.innerWidth, height: window.innerHeight })
       e.cloud.style.visibility = position ? 'visible' : 'hidden'
       if (position) {
-        e.cloud.style.transform = 'translate(' + ((position.left - anchor.left) / scale) + 'px,' + ((position.top - anchor.top) / scale) + 'px)'
+        e.cloud.style.transform = 'translate(' + ((position.left - anchor.left) / scale - e.cloud.offsetLeft) + 'px,' + ((position.top - anchor.top) / scale - e.cloud.offsetTop) + 'px)'
         obstacles.push(position)
       }
     }
