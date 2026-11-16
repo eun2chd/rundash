@@ -21,6 +21,8 @@ test('weekly ranking and monthly attendance calendar', async t => {
    grant usage on schema auth to anon,authenticated;`)
   const directory=new URL('../supabase/migrations/',import.meta.url)
   for(const file of (await readdir(directory)).filter(f=>f.endsWith('.sql')).sort()) await db.exec(await readFile(new URL(file,directory),'utf8'))
+  // Fixed 100 XP per km so rewards are exact; production rolls 10~100 per km.
+  await db.exec(`update public.game_settings set value=value||'{"xpPerKmMin":100,"xpPerKmMax":100}'`)
   for(const [key,id] of Object.entries(users)) {
    await db.query('insert into auth.users(id,email) values($1,$2)',[id,key+'@private.test'])
    await db.query("insert into public.profiles(id,nickname,color,skin) values($1,$2,'#e07b39','#f6d1b0')",[id,'Runner'+key.toUpperCase()])
@@ -37,7 +39,7 @@ test('weekly ranking and monthly attendance calendar', async t => {
    assert.deepEqual(board.items.map(row => [row.rank, row.nickname, Number(row.km), row.runs]), [[1,'RunnerB',7,1],[2,'RunnerA',5.5,2],[3,'RunnerC',1,1]])
    assert.equal(board.participants, 3)
    assert.equal(board.me.rank, 2); assert.equal(board.items[1].me, true); assert.equal(board.items[0].me, false)
-   assert.equal(board.items[1].level, 3)
+   assert.equal(board.items[1].level, 5)
    assert(!JSON.stringify(board).includes('@private.test')); assert(!JSON.stringify(board).includes(users.b))
   })
   await t.test('last week has its own board and ties go to whoever got there first',async()=>{
@@ -96,7 +98,7 @@ test('weekly ranking and monthly attendance calendar', async t => {
    const total=await board(users.a,'total')
    assert.deepEqual(total.items.map(row => [row.nickname, Number(row.km), row.runs]), [['RunnerC',30,8],['RunnerB',12,4],['RunnerA',5.5,2]])
    const level=await board(users.b,'level')
-   assert.deepEqual(level.items.map(row => [row.rank, row.nickname, row.level]), [[1,'RunnerA',3],[2,'RunnerC',3],[3,'RunnerB',2]])
+   assert.deepEqual(level.items.map(row => [row.rank, row.nickname, row.level]), [[1,'RunnerA',5],[2,'RunnerC',5],[3,'RunnerB',3]])
    assert.equal(level.me.rank, 3); assert.equal(level.resetsAt, null)
    await assert.rejects(board(users.a,'level',1), /지난 기간/)
    await assert.rejects(board(users.a,'speed'), /종류/)

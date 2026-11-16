@@ -17,7 +17,8 @@ import { api } from '../lib/api'
 import { BIOME_ICONS, CHEER_ICONS, CHEER_KEYS, ITEM_ICONS } from '../lib/icons'
 import Hud from '../components/Hud'
 import Loading from '../components/Loading'
-import { judgeRhythm } from '../lib/rhythm'
+import { judgeRhythm, rhythmFrame, RHYTHM_WINDOWS } from '../lib/rhythm'
+import { autoUnlocked } from '../lib/progression'
 import { applyRhythmBoost } from '../lib/rhythmBoost'
 import useRaceRoom from '../lib/useRaceRoom'
 import { getSettings } from '../lib/settings'
@@ -212,6 +213,22 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
   const flags = useRef({ resting: false, low: false })
 
   const bump = () => setStatsView({ ...stats.current })
+
+  // AUTO (Lv.autoLevel+): collects supplies and medals in reach and hits every rhythm beat on PERFECT.
+  const autoAvailable = !config.anonymous && autoUnlocked(config.level)
+  const [auto, setAuto] = useState(() => {
+    if (!autoAvailable) return false
+    try { return localStorage.getItem('rundash:auto') !== 'off' } catch { return true }
+  })
+  const autoRef = useRef(auto)
+  autoRef.current = auto
+  const toggleAuto = () => {
+    if (!autoAvailable) return toast(`AUTO는 Lv.${getSettings().autoLevel}부터 사용할 수 있어요`, 'warn')
+    const next = !autoRef.current
+    try { localStorage.setItem('rundash:auto', next ? 'on' : 'off') } catch { /* The toggle still works without storage. */ }
+    setAuto(next)
+    toast(next ? 'AUTO 켜짐 · 보급·메달·리듬 러닝을 자동으로 수행해요' : 'AUTO 꺼짐', 'info')
+  }
 
   const toast = useCallback((text, kind = 'info', icon = null, action = null) => {
     const id = Math.random()
@@ -446,7 +463,7 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
   }
 
   const handlers = useRef({})
-  handlers.current = { hitBeat, cheer, collectNearest, togglePause, boost }
+  handlers.current = { hitBeat, cheer, collectNearest, togglePause, boost, toggleAuto }
   useEffect(() => {
     const onKey = (e) => {
       if (exitPending.current || manualPending.current || e.repeat || e.target.closest('input, textarea, select, [contenteditable="true"], .runner-chat')) return
@@ -455,6 +472,7 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
       else if (import.meta.env.DEV && e.code === 'KeyC') h.cheer()
       else if (e.code === 'KeyE') h.collectNearest()
       else if (e.code === 'KeyB') h.boost()
+      else if (e.code === 'KeyA') h.toggleAuto()
       else if (e.code === 'KeyP' || e.code === 'Escape') h.togglePause()
     }
     window.addEventListener('keydown', onKey)
@@ -509,6 +527,11 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
       setItems((l) => l.map((i) => (ids.has(i.id) ? { ...i, status: 'missed' } : i)))
     }
 
+    // AUTO: pick up every supply and medal that is in reach.
+    if (autoRef.current && ready && !s.paused && !s.resting && !s.finished) {
+      for (const item of itemsRef.current) if (item.status === 'pending' && canGrab(item, my)) collect(item)
+    }
+
     // 체력 상태 알림
     if (s.resting && !flags.current.resting) {
       flags.current.resting = true
@@ -542,6 +565,18 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
     const id = setInterval(() => loopRef.current(), 250)
     return () => clearInterval(id)
   }, [])
+  // AUTO rhythm: watch the beat closely and hit it inside the PERFECT window once per beat.
+  useEffect(() => {
+    if (!auto || !ready) return
+    const id = setInterval(() => {
+      const s = sim.current
+      if (s.finished || s.paused || s.resting || manualPending.current || exitPending.current) return
+      tick()
+      const frame = rhythmFrame(rhythm.current)
+      if (frame.cycle !== rhythm.current.lastIdx && frame.offset <= RHYTHM_WINDOWS.perfect * .8) handlers.current.hitBeat()
+    }, 15)
+    return () => clearInterval(id)
+  }, [auto, ready, tick])
 
   return (
     <div className="run-screen">
@@ -621,6 +656,9 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
           onCheer={cheer}
           onCollect={onCollect}
           onCollectNearest={collectNearest}
+          auto={auto}
+          autoAvailable={autoAvailable}
+          onToggleAuto={toggleAuto}
         />
       ) : (
         <div className="run-loading">

@@ -3,6 +3,7 @@ import { LuUsers, LuSearch, LuMapPin } from 'react-icons/lu'
 import { api } from '../lib/api'
 import { fmtPace, fmtKm } from '../lib/pace'
 import { socialErrorMessage } from '../lib/socialErrors'
+import { notify } from '../lib/notify'
 
 export default function FriendPanel({ social, onLocate, confirmAction, openRequest = 0, onAcceptInvite }) {
   const [open, setOpen] = useState(false)
@@ -30,13 +31,12 @@ export default function FriendPanel({ social, onLocate, confirmAction, openReque
   const [blocks, setBlocks] = useState([])
   const [blocksLoaded, setBlocksLoaded] = useState(false)
   const [busy, setBusy] = useState(false)
-  const [message, setMessage] = useState('')
   const busyRef = useRef(false)
   const action = async (fn, success = '') => {
     if (busyRef.current) return
-    busyRef.current = true; setBusy(true); setMessage('')
-    try { await fn(); setMessage(success); await social.refresh() }
-    catch (err) { setMessage(socialErrorMessage(err)) }
+    busyRef.current = true; setBusy(true)
+    try { await fn(); if (success) notify.success(success); await social.refresh() }
+    catch (err) { notify.error(socialErrorMessage(err)) }
     finally { busyRef.current = false; setBusy(false) }
   }
   const block = (runner) => action(async () => {
@@ -110,7 +110,6 @@ export default function FriendPanel({ social, onLocate, confirmAction, openReque
         <button className="link friend-blocks-toggle" disabled={busy} onClick={() => action(async () => { setBlocks(await api.listBlocks()); setBlocksLoaded(true) })}>차단 목록 보기</button>
         {blocksLoaded && !blocks.length && <p role="status">차단한 러너가 없어요.</p>}
         {blocks.map(runner => <div className="friend-row" key={runner.id}>{runner.nickname}<button className="link" disabled={busy} onClick={() => action(async () => { await api.blockFriend(runner.id, false); setBlocks(await api.listBlocks()) })}>차단 해제</button></div>)}
-        {message && <p className="friend-notice" role="status">{message}</p>}
       </>}
     </section>}
   </div>

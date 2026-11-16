@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react'
 import {
   LuMusic, LuMegaphone, LuHand, LuPause, LuPlay, LuLogOut,
-  LuHeartPulse, LuDroplet, LuBatteryLow, LuGauge, LuZap, LuCloud, LuLayoutDashboard,
+  LuHeartPulse, LuDroplet, LuBatteryLow, LuGauge, LuZap, LuCloud, LuLayoutDashboard, LuBot, LuLock,
 } from 'react-icons/lu'
 import { fmtTime, fmtPace } from '../lib/pace'
 import { STAMINA, staminaState } from '../lib/stamina'
 import { BIOME_ICONS } from '../lib/icons'
 import Minimap from './Minimap'
 import RhythmBar from './RhythmBar'
-import { experienceFor } from '../lib/progression'
+import { experienceFor, xpRangeText } from '../lib/progression'
 import { getSettings } from '../lib/settings'
 import ScoreSummary from './ScoreSummary'
 import SupplyPanel from './SupplyPanel'
@@ -31,7 +31,7 @@ function savedPanels() {
 export default function Hud({
   sim, getMyDist, getGhostDist, ghosts, nearestGhost, profile, config, totalM, biome,
   stats, items, stations, closedStations, rhythm, judge, cadence, toasts, paused, timeScale,
-  onTimeScale, onPause, onQuit, onBeat, onCheer, onCollect, onCollectNearest, onBoost,
+  onTimeScale, onPause, onQuit, onBeat, onCheer, onCollect, onCollectNearest, onBoost, auto = false, autoAvailable = false, onToggleAuto,
   room, showActivity, onToggleActivity, activity, onActivityChange, realPeers = [], myVisualPose, social, confirmAction, checkpointError, locating, onLocateFriend, onReturnToRunner, showPauseDialog = true, friendPanelRequest, canPause = true, onAcceptInvite,
 }) {
   const [t, setT] = useState(() => snapshot())
@@ -93,7 +93,7 @@ export default function Hud({
 
   const st = staminaState(t.stamina, t.resting, s.maxStamina)
   const stPct = Math.max(0, Math.min(100, t.stamina / s.maxStamina * 100))
-  const xpEstimate = experienceFor({ distanceKm: km, completed: false, practice: t.practice, anonymous: config.anonymous }).total
+  const xpEstimate = xpRangeText(experienceFor({ distanceKm: km, completed: false, practice: t.practice, anonymous: config.anonymous }))
   const boostDisabled = !config.boosterUnlocked || paused || t.resting || t.boostCooldownLeft > 0 || t.stamina <= config.boosterCost
 
   // 보급소
@@ -214,6 +214,7 @@ export default function Hud({
         <RhythmBar rhythm={rhythm} judge={judge} onBeat={onBeat} cadence={cadence} disabled={paused || t.resting} />
         <div className="dock">
           {!config.anonymous && <button className={`dock-btn booster-btn ${t.boostLeft > 0 ? 'boosting' : ''}`} disabled={boostDisabled} onClick={onBoost} title={config.boosterUnlocked ? `속도 +${Math.round((getSettings().boostMultiplier - 1) * 100)}% · 체력 ${config.boosterCost} 소모 · 종료 후 ${config.boosterCooldown}초 재충전` : '레벨을 올려 부스터를 해금해요'}><LuZap /><span>{!config.boosterUnlocked ? '부스터 잠김' : t.boostLeft > 0 ? `가속 ${Math.ceil(t.boostLeft)}초` : t.boostCooldownLeft > 0 ? `충전 ${Math.ceil(t.boostCooldownLeft)}초` : t.stamina <= config.boosterCost ? '체력 부족' : '부스터'}</span><kbd>B</kbd></button>}
+          {!config.anonymous && <button className={`dock-btn auto-btn${auto ? ' on' : ''}${autoAvailable ? '' : ' locked'}`} aria-pressed={auto} onClick={onToggleAuto} title={autoAvailable ? '보급소·메달·리듬 러닝을 자동으로 수행해요' : `Lv.${getSettings().autoLevel}에 해금돼요`}>{autoAvailable ? <LuBot /> : <LuLock />}<span>{autoAvailable ? (auto ? 'AUTO 켜짐' : 'AUTO') : `AUTO Lv.${getSettings().autoLevel}`}</span><kbd>A</kbd></button>}
           <button className="dock-btn" onClick={onBeat}><LuMusic /><span>박자</span><kbd>Space</kbd></button>
           {import.meta.env.DEV && <button className={`dock-btn ${t.near ? 'glow' : ''}`} onClick={onCheer}>
             <LuMegaphone /><span>{t.near ? `${t.near.g.nickname} 응원` : '응원'}</span><kbd>C</kbd>

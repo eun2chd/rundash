@@ -1,6 +1,6 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { LuBan, LuChevronDown, LuEye, LuRotateCcw, LuShieldCheck, LuShieldOff, LuSparkles, LuTrash2 } from 'react-icons/lu'
+import { LuBan, LuChevronDown, LuEye, LuKeyRound, LuRotateCcw, LuShieldCheck, LuShieldOff, LuSparkles, LuTrash2 } from 'react-icons/lu'
 
 const MENU_WIDTH = 220
 
@@ -21,6 +21,7 @@ export default function AdminActionMenu({ member, isSelf = false, disabled, onSe
     member.admin
       ? { value: 'revoke-admin', label: '관리자 해제', Icon: LuShieldOff, blocked: self }
       : { value: 'grant-admin', label: '관리자로 지정', Icon: LuShieldCheck, blocked: member.is_anonymous || !member.email ? '회원만' : member.suspended ? '정지 중' : '' },
+    { value: 'reset-password', label: '비밀번호 초기화', Icon: LuKeyRound, blocked: self || (member.is_anonymous || !member.email ? '이메일 없음' : member.admin ? '관리자' : '') },
     member.suspended
       ? { value: 'restore', label: '이용 복원', Icon: LuRotateCcw, blocked: self || (member.admin ? '관리자' : '') }
       : { value: 'suspend', label: '이용 정지', Icon: LuBan, blocked: self || (member.admin ? '관리자' : ''), danger: true },

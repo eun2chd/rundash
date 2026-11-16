@@ -1,5 +1,19 @@
+export const MAX_LEVEL = 100
+export const MAX_LEVEL_XP = 3400000
+
+// Cumulative XP to reach each level: a gentle linear start plus a cubic climb that lands
+// exactly on MAX_LEVEL_XP at Lv.100 (Lv.2 about 1km, Lv.80 about 23,000km of completed runs).
+export function defaultLevelXp(level) {
+  if (level <= 1) return 0
+  if (level >= MAX_LEVEL) return MAX_LEVEL_XP
+  const n = level - 1, linear = 100, cubic = (MAX_LEVEL_XP - linear * (MAX_LEVEL - 1)) / (MAX_LEVEL - 1) ** 3
+  return Math.round((linear * n + cubic * n ** 3) / 10) * 10
+}
+
 export const DEFAULT_SETTINGS = {
-  xpBase: 300, xpStep: 100, xpPerKm: 100, completionBonus: .2,
+  // Each km earns a random XP between min and max; the run score adds 1 XP per scorePointsPerXp
+  // points (never more than the distance XP). Lv.autoLevel unlocks AUTO running.
+  xpPerKmMin: 10, xpPerKmMax: 100, completionBonus: .2, scorePointsPerXp: 10, autoLevel: 80,
   anonymousMaxKm: 10, maxDistanceKm: 100,
   anonymousPace: 540, anonymousStamina: 100, anonymousRecovery: 60,
   boostCooldown: 90, boostCost: 12, boostMultiplier: 1.5,
@@ -15,26 +29,37 @@ export const DEFAULT_SETTINGS = {
     { id: 'steady', label: '꾸준히', description: '균형 잡힌 기본 훈련', extraPace: 60, drain: 1 },
     { id: 'challenge', label: '도전하기', description: '가장 빠르게, 보급은 필수', extraPace: 0, drain: 1.35 },
   ],
-  levels: Array.from({ length: 50 }, (_, i) => {
+  levels: Array.from({ length: MAX_LEVEL }, (_, i) => {
     const level = i + 1
-    return { level, pace: level <= 5 ? 540 - i * 15 : level <= 10 ? 480 - (level - 5) * 12 : level <= 30 ? 420 - (level - 10) * 6 : 300,
-      stamina: 100 + i * 3, recovery: Math.max(30, 60 - i), boost: level < 5 ? 0 : level >= 30 ? 15 : level >= 20 ? 12 : 8 }
+    return { level, xp: defaultLevelXp(level), pace: level <= 5 ? 540 - i * 15 : level <= 10 ? 480 - (level - 5) * 12 : level <= 30 ? 420 - (level - 10) * 6 : 300,
+      stamina: 100 + i * 3, recovery: Math.max(30, 60 - i), boost: level < 5 ? 0 : level >= 80 ? 20 : level >= 60 ? 18 : level >= 30 ? 15 : level >= 20 ? 12 : 8 }
   }),
 }
 let current = structuredClone(DEFAULT_SETTINGS)
 export const getSettings = () => current
-export function configureSettings(value) {
+// Fills anything an older settings row lacks (50 levels, no per-level xp, new keys) from the defaults.
+export function normalizeSettings(value) {
   const next = structuredClone(value || DEFAULT_SETTINGS)
-  current.intensities.splice(0, 3, ...next.intensities)
-  current.levels.splice(0, 50, ...next.levels)
+  const levels = Array.isArray(next.levels) ? next.levels : []
+  const legacy = !levels.length || levels[0].xp === undefined
+  next.levels = DEFAULT_SETTINGS.levels.map((row, i) => ({ ...row, ...levels[i], level: i + 1, ...(legacy ? { xp: row.xp } : {}) }))
+  for (const key of ['xpPerKmMin', 'xpPerKmMax', 'scorePointsPerXp', 'autoLevel']) if (typeof next[key] !== 'number') next[key] = DEFAULT_SETTINGS[key]
+  delete next.xpBase; delete next.xpStep; delete next.xpPerKm
+  return { ...structuredClone(DEFAULT_SETTINGS), ...next }
+}
+export function configureSettings(value) {
+  const next = normalizeSettings(value)
+  current.intensities.splice(0, current.intensities.length, ...next.intensities)
+  current.levels.splice(0, current.levels.length, ...next.levels)
   const { intensities, levels, ...scalars } = next
+  for (const key of ['xpBase', 'xpStep', 'xpPerKm']) delete current[key]
   Object.assign(current, scalars)
 }
 
 // Bounds are also enforced by the server. These fields are editable by administrators.
 export const SETTING_FIELDS = [
-  ['경험치', 'xpBase', '첫 레벨업 필요 XP', 1, 100000, 1], ['경험치', 'xpStep', '레벨별 필요 XP 증가 계수', 0, 10000, 1],
-  ['경험치', 'xpPerKm', '1km당 경험치', 0, 10000, 1], ['경험치', 'completionBonus', '완주 보너스 비율', 0, 5, .05],
+  ['경험치', 'xpPerKmMin', '1km당 최소 경험치', 0, 10000, 1], ['경험치', 'xpPerKmMax', '1km당 최대 경험치', 0, 10000, 1], ['경험치', 'completionBonus', '완주 보너스 비율', 0, 5, .05],
+  ['경험치', 'scorePointsPerXp', '점수 보너스: 몇 점당 1 XP', 1, 100000, 1], ['러닝', 'autoLevel', 'AUTO 해금 레벨', 1, 100, 1],
   ['러닝', 'maxDistanceKm', '회원 최대 거리 km', .5, 100, .5], ['러닝', 'anonymousMaxKm', '익명 최대 거리 km', .5, 10, .5],
   ['익명 러너', 'anonymousPace', '기본 최대 페이스 초/km', 180, 1800, 1], ['익명 러너', 'anonymousStamina', '기본 체력', 10, 1000, 1], ['익명 러너', 'anonymousRecovery', '회복 시간 초', 5, 300, 1],
   ['부스터', 'boostCooldown', '재충전 초', 1, 600, 1], ['부스터', 'boostCost', '소모 체력', 1, 100, 1], ['부스터', 'boostMultiplier', '속도 배율', 1, 3, .1],

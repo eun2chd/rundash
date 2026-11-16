@@ -2,18 +2,23 @@ import { useEffect, useState } from 'react'
 import AdminMemberModal from '../components/AdminMemberModal'
 import AdminActionMenu from '../components/AdminActionMenu'
 import AdminTestAccountModal from '../components/AdminTestAccountModal'
+import AdminReportModal from '../components/AdminReportModal'
+import AdminSupportModal from '../components/AdminSupportModal'
 import Pagination from '../components/Pagination'
 import { rowNumber } from '../lib/pagination'
+import { levelXpTable } from '../lib/progression'
+import { FREE_PACE_LEVEL } from '../lib/pacePlans'
+import { notify } from '../lib/notify'
 import './admin.css'
 import { LuUsers, LuSettings, LuMessageCircle, LuHistory, LuShield, LuFlag } from 'react-icons/lu'
 import { REPORT_REASONS } from '../lib/chat'
 import { api } from '../lib/api'
-import { configureSettings, DEFAULT_SETTINGS, SETTING_FIELDS } from '../lib/settings'
+import { configureSettings, normalizeSettings, DEFAULT_SETTINGS, SETTING_FIELDS } from '../lib/settings'
 import { SUPPORT_TYPES, SUPPORT_STATUS } from './Support'
 
 const TABS = [['members', '회원 관리', LuUsers], ['support', '문의 관리', LuMessageCircle], ['reports', '채팅 신고', LuFlag], ['settings', '러닝과 경험치 설정', LuSettings], ['audit', '변경 이력', LuHistory]]
 const date = value => value ? new Date(value).toLocaleString('ko-KR') : '없음'
-const ACTIONS = { xp: '경험치 조정', suspend: '계정 이용 정지', restore: '계정 이용 복원', settings: '러닝 설정 변경', support_reply: '문의 답변', chat_remove: '채팅 삭제', chat_dismiss: '신고 기각', account_deleted: '계정 삭제·탈퇴', test_account_created: '테스트 계정 생성', admin_grant: '관리자 지정', admin_revoke: '관리자 해제' }
+const ACTIONS = { xp: '경험치 조정', suspend: '계정 이용 정지', restore: '계정 이용 복원', settings: '러닝 설정 변경', support_reply: '문의 답변', chat_remove: '채팅 삭제', chat_dismiss: '신고 기각', account_deleted: '계정 삭제·탈퇴', test_account_created: '테스트 계정 생성', admin_grant: '관리자 지정', admin_revoke: '관리자 해제', password_reset: '비밀번호 초기화' }
 const REPORT_STATUS = { open: '처리 대기', removed: '삭제함', dismissed: '기각함' }
 
 export default function Admin({ confirmAction, currentUserId }) {
@@ -34,13 +39,9 @@ export default function Admin({ confirmAction, currentUserId }) {
   const [memberStatus, setMemberStatus] = useState('')
   const [memberAction, setMemberAction] = useState('details')
   const [runsError, setRunsError] = useState('')
-  const [reason, setReason] = useState('')
-  const [reply, setReply] = useState('')
-  const [status, setStatus] = useState('reviewing')
   const [busy, setBusy] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [notice, setNotice] = useState('')
   const dirty = settings && draft && JSON.stringify(draft) !== JSON.stringify(settings.value)
   useEffect(() => {
     let live = true
@@ -48,43 +49,43 @@ export default function Admin({ confirmAction, currentUserId }) {
     const load = tab === 'members' ? api.adminMembers(search, page, memberType, memberStatus) : tab === 'support' ? api.adminSupport(filter, page) : tab === 'reports' ? api.adminChatReports(reportFilter, page) : tab === 'audit' ? api.adminAudit(page) : api.getSettings()
     load.then(value => {
       if (!live) return
-      if (tab === 'settings') { setSettings(value); setDraft(structuredClone(value.value)) }
+      if (tab === 'settings') { setSettings(value); setDraft(normalizeSettings(value.value)) }
       else setData(value)
     }).catch(err => { if (live) setError(err.message || '불러오지 못했어요.') }).finally(() => { if (live) setLoading(false) })
     return () => { live = false }
   }, [tab, search, filter, reportFilter, page, refresh, memberType, memberStatus])
   const changeTab = async (next) => {
     if (busy || next === tab) return
-    if ((dirty || reason || reply) && !await confirmAction({ title: '관리 메뉴를 이동할까요?', description: '저장하지 않은 변경사항은 사라져요.' })) return
-    setData(null); setTab(next); setPage(0); setSelected(null); setReason(''); setReply(''); setNotice('')
+    if (dirty && !await confirmAction({ title: '관리 메뉴를 이동할까요?', description: '저장하지 않은 변경사항은 사라져요.' })) return
+    setData(null); setTab(next); setPage(0); setSelected(null)
   }
   const applyMemberAction = async (action, value, actionReason) => {
     setBusy(true)
     try {
       if (action === 'delete') await api.adminDeleteMember(selected.id, value, actionReason)
+      else if (action === 'reset-password') await api.adminResetPassword(selected.id, actionReason)
       else if (action === 'grant-admin' || action === 'revoke-admin') await api.adminSetAdmin(selected.id, action === 'grant-admin', actionReason)
       else await api.adminMemberAction(selected.id, action, action === 'xp' ? value : null, actionReason)
-      setSelected(null); setNotice(action === 'delete' ? '계정을 삭제했어요.' : action === 'grant-admin' ? '관리자로 지정했어요.' : action === 'revoke-admin' ? '관리자 권한을 해제했어요.' : '회원 정보를 변경했어요.'); setRefresh(v => v + 1)
+      setSelected(null); notify.success(action === 'delete' ? '계정을 삭제했어요.' : action === 'grant-admin' ? '관리자로 지정했어요.' : action === 'revoke-admin' ? '관리자 권한을 해제했어요.' : action === 'reset-password' ? '비밀번호를 rundash123! 로 초기화했어요. 회원에게 로그인 후 변경하도록 안내해 주세요.' : '회원 정보를 변경했어요.'); setRefresh(v => v + 1)
     } finally { setBusy(false) }
   }
   const saveSettings = async (event) => {
     event.preventDefault()
     if (busy || !dirty) return
     if (!await confirmAction({ title: '러닝 설정을 적용할까요?', description: '다음에 시작하는 러닝부터 새 설정을 사용합니다. 경험치 곡선을 바꾸면 기존 회원의 표시 레벨도 달라질 수 있어요.', confirmLabel: '설정 적용' })) return
-    setBusy(true); setError(''); setNotice('')
-    try { const version = await api.adminSaveSettings(draft, settings.version); configureSettings(draft); setSettings({ ...settings, value: structuredClone(draft), version }); setNotice(`설정 버전 ${version}을 적용했어요.`) } catch (err) { setError(err.message) } finally { setBusy(false) }
+    setBusy(true); setError('')
+    try { const version = await api.adminSaveSettings(draft, settings.version); configureSettings(draft); setSettings({ ...settings, value: structuredClone(draft), version }); notify.success(`설정 버전 ${version}을 적용했어요.`) } catch (err) { notify.error(err.message || '처리하지 못했어요. 다시 시도해 주세요.') } finally { setBusy(false) }
   }
-  const saveReply = async (event) => {
-    event.preventDefault()
-    if (!await confirmAction({ title: '문의 답변과 상태를 저장할까요?', description: '작성한 답변이 문의한 사용자에게 표시됩니다.', confirmLabel: '답변 저장' })) return
-    setBusy(true); setError(''); setNotice('')
-    try { await api.adminReply(selected.id, status, reply); setSelected(null); setReply(''); setNotice('문의 답변을 저장했어요.'); setRefresh(v => v + 1) } catch (err) { setError(err.message) } finally { setBusy(false) }
+  // Called from the modals; a thrown error stays in the modal so the admin can retry.
+  const saveReply = async (nextStatus, nextReply) => {
+    setBusy(true)
+    try { await api.adminReply(selected.id, nextStatus, nextReply); setSelected(null); notify.success('문의 답변을 저장했어요.'); setRefresh(v => v + 1) }
+    finally { setBusy(false) }
   }
-  const resolveReport = async (action) => {
-    if (busy) return
-    if (!await confirmAction({ title: action === 'remove' ? '메시지를 삭제할까요?' : '신고를 기각할까요?', description: action === 'remove' ? '모든 러너의 채팅방에서 메시지가 사라져요. 작성자 이용 정지는 회원 관리에서 따로 처리해 주세요.' : '메시지는 그대로 두고 신고를 종료해요.', confirmLabel: action === 'remove' ? '삭제하기' : '기각하기' })) return
-    setBusy(true); setError(''); setNotice('')
-    try { await api.adminResolveChatReport(selected.message_id, action, reason); setSelected(null); setReason(''); setNotice(action === 'remove' ? '메시지를 삭제했어요.' : '신고를 기각했어요.'); setRefresh(v => v + 1) } catch (err) { setError(err.message) } finally { setBusy(false) }
+  const resolveReport = async (action, decisionReason) => {
+    setBusy(true)
+    try { await api.adminResolveChatReport(selected.message_id, action, decisionReason); setSelected(null); notify.success(action === 'remove' ? '메시지를 삭제했어요.' : '신고를 기각했어요.'); setRefresh(v => v + 1) }
+    finally { setBusy(false) }
   }
   const editLevel = (index, key, value) => setDraft(old => ({ ...old, levels: old.levels.map((row, i) => i === index ? { ...row, [key]: value } : row) }))
   useEffect(() => {
@@ -98,7 +99,7 @@ export default function Admin({ confirmAction, currentUserId }) {
     <section className="admin-content">
       <header className="admin-content-header"><h2>{(() => { const [, label, Icon] = TABS.find(([id]) => id === tab); return <><Icon aria-hidden="true" />{label}</> })()}</h2></header>
       <div className="admin-content-body">
-      {error && <p className="error" role="alert">{error}</p>}{notice && <p className="account-notice" role="status">{notice}</p>}
+      {error && <p className="error" role="alert">{error}</p>}
       {tab === 'members' && <>
         <div className="admin-kpis" aria-label="전체 계정 요약">{[['total','전체 계정'],['members','회원 계정'],['anonymous','익명 러너'],['suspended','이용 정지'],['test','테스트 계정']].map(([key,label]) => <section key={key}><span>{label}</span><strong>{data?.summary ? Number(data.summary[key]).toLocaleString() : '…'}<small>명</small></strong></section>)}</div>
         <form className="admin-toolbar" onSubmit={e => { e.preventDefault(); setSearch(query.trim()); setPage(0); setRefresh(v => v + 1) }}>
@@ -109,17 +110,15 @@ export default function Admin({ confirmAction, currentUserId }) {
           <label className="sr-only" htmlFor="member-status">계정 상태</label>
           <select id="member-status" value={memberStatus} disabled={busy} onChange={e => { setMemberStatus(e.target.value); setPage(0) }}><option value="">계정 상태 전체</option><option value="active">정상</option><option value="suspended">이용 정지</option></select>
           <button className="btn primary" disabled={busy || loading}>검색</button>
-          <button type="button" className="btn ghost admin-toolbar-create" disabled={busy} onClick={() => { setCreatingTest(true); setNotice('') }}>테스트 계정 만들기</button>
+          <button type="button" className="btn ghost admin-toolbar-create" disabled={busy} onClick={() => { setCreatingTest(true) }}>테스트 계정 만들기</button>
         </form></>}
       {tab === 'support' && <div className="admin-toolbar"><label className="sr-only" htmlFor="support-status">문의 상태</label><select id="support-status" value={filter} disabled={busy} onChange={e => { setFilter(e.target.value); setPage(0) }}><option value="">문의 상태 전체</option>{Object.entries(SUPPORT_STATUS).map(([key,label]) => <option key={key} value={key}>{label}</option>)}</select></div>}
       {tab === 'reports' && <div className="admin-toolbar"><label className="sr-only" htmlFor="report-status">처리 상태</label><select id="report-status" value={reportFilter} disabled={busy} onChange={e => { setReportFilter(e.target.value); setPage(0) }}><option value="">처리 상태 전체</option>{Object.entries(REPORT_STATUS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></div>}
       {loading && !data && tab !== 'settings' ? <p role="status">불러오고 있어요…</p> : loading && tab === 'settings' ? <p role="status">불러오고 있어요…</p> : <div className={`admin-results${loading ? ' loading' : ''}`} aria-busy={loading}>
       {tab === 'reports' && data && <><p className="admin-count">전체 {data.total}건</p><div className="admin-table-wrap"><table className="admin-table"><thead><tr><th scope="col">상태</th><th scope="col">작성자</th><th scope="col">메시지</th><th scope="col">사유</th><th scope="col">신고 수</th><th scope="col">최근 신고</th><th scope="col">관리</th></tr></thead><tbody>{data.items.map(item => <tr key={item.message_id} className={selected?.message_id === item.message_id ? 'selected' : ''}>
 <td>{REPORT_STATUS[item.status]}</td><td>{item.author_nickname}{item.author_suspended && ' (정지됨)'}</td><td className="report-message">{item.message}</td><td>{item.reasons.map(r => REPORT_REASONS[r] || r).join(', ')}</td><td className="numeric-cell">{item.report_count}건</td><td>{date(item.last_reported_at)}</td>
-<td><button className="btn ghost" disabled={busy} onClick={() => { setSelected(item); setReason(''); setNotice('') }}>{item.status === 'open' ? '처리하기' : '보기'}</button></td></tr>)}</tbody></table></div>{!data.items.length && <p className="account-empty">해당하는 신고가 없어요.</p>}
-      {selected && <div className="admin-editor"><h3>{selected.author_nickname}님의 메시지</h3><p className="ticket-body">{selected.message}</p><p>작성 {date(selected.message_created_at)} · {selected.message_exists ? '채팅방에 표시 중' : '삭제됨'}{selected.resolved_at && ` · 처리 ${date(selected.resolved_at)}`}</p>
-        {selected.status === 'open' ? <><label className="field"><span>처리 사유</span><input value={reason} minLength={2} maxLength={500} onChange={e => setReason(e.target.value)} disabled={busy} placeholder="운영 이력에 남길 사유" /></label><div className="settings-save"><button type="button" className="btn ghost" disabled={busy || reason.trim().length < 2} onClick={() => resolveReport('dismiss')}>신고 기각</button><button type="button" className="btn danger" disabled={busy || reason.trim().length < 2} onClick={() => resolveReport('remove')}>메시지 삭제</button></div></> : <p>이미 처리된 신고예요.</p>}
-      </div>}</>}
+<td><button className="btn ghost" disabled={busy} onClick={() => setSelected(item)}>{item.status === 'open' ? '처리하기' : '보기'}</button></td></tr>)}</tbody></table></div>{!data.items.length && <p className="account-empty">해당하는 신고가 없어요.</p>}
+      {selected && <AdminReportModal key={selected.message_id} report={selected} busy={busy} onClose={() => setSelected(null)} onResolve={resolveReport} />}</>}
       {tab === 'members' && data && <><p className="admin-count">전체 {data.total}명</p><div className="admin-table-wrap member-table-wrap" role="region" aria-label="회원 목록" tabIndex={0}>
         <table className="admin-table member-table">
           <caption className="sr-only">회원 기본정보와 러닝 현황</caption>
@@ -136,21 +135,22 @@ export default function Admin({ confirmAction, currentUserId }) {
             <td className="numeric-cell">{member.run_count}회</td>
             <td><time dateTime={member.created_at}>{date(member.created_at)}</time></td>
             <td>{member.last_sign_in_at ? <time dateTime={member.last_sign_in_at}>{date(member.last_sign_in_at)}</time> : '접속 기록 없음'}</td>
-            <td className="status-cell"><AdminActionMenu member={member} isSelf={member.id === currentUserId} disabled={busy} onSelect={action => { setMemberAction(action); setSelected(member); setNotice('') }} /></td>
+            <td className="status-cell"><AdminActionMenu member={member} isSelf={member.id === currentUserId} disabled={busy} onSelect={action => { setMemberAction(action); setSelected(member) }} /></td>
           </tr>)}{!data.items.length && <tr><td colSpan={12} className="empty-cell">검색 결과가 없어요.</td></tr>}</tbody>
         </table>
       </div>
       {selected && <AdminMemberModal key={selected.id + memberAction} member={selected} action={memberAction} runs={memberRuns} runsError={runsError} busy={busy} onClose={() => setSelected(null)} onApply={applyMemberAction} />}
-      {creatingTest && <AdminTestAccountModal onClose={() => setCreatingTest(false)} onCreated={(nickname) => { setCreatingTest(false); setNotice(`테스트 계정 ${nickname}을(를) 만들었어요. 이메일 인증 없이 바로 로그인할 수 있어요.`); setMemberType(''); setPage(0); setRefresh(v => v + 1) }} />}</>}
+      {creatingTest && <AdminTestAccountModal onClose={() => setCreatingTest(false)} onCreated={(nickname) => { setCreatingTest(false); notify.success(`테스트 계정 ${nickname}을(를) 만들었어요. 이메일 인증 없이 바로 로그인할 수 있어요.`); setMemberType(''); setPage(0); setRefresh(v => v + 1) }} />}</>}
       {tab === 'support' && data && <><p className="admin-count">전체 {data.total}건</p><div className="admin-table-wrap"><table className="admin-table"><thead><tr><th scope="col">상태</th><th scope="col">유형</th><th scope="col">제목</th><th scope="col">작성자</th><th scope="col">접수일</th><th scope="col">관리</th></tr></thead><tbody>{data.items.map(ticket => <tr key={ticket.id}>
 <td>{SUPPORT_STATUS[ticket.status]}</td><td>{SUPPORT_TYPES[ticket.category]}</td><td>{ticket.title}</td><td>{ticket.nickname || ticket.email || '익명 러너'}</td><td>{date(ticket.created_at)}</td>
-<td><button className="btn ghost" disabled={busy} onClick={() => { setSelected(ticket); setStatus(ticket.status); setReply(ticket.reply); setNotice('') }}>문의 열기</button></td></tr>)}</tbody></table></div>{!data.items.length && <p className="account-empty">접수된 문의가 없어요.</p>}{selected && <form className="admin-editor" onSubmit={saveReply}><h3>{selected.title}</h3><p className="ticket-body">{selected.body}</p><label className="field"><span>처리 상태</span><select value={status} disabled={busy} onChange={e => setStatus(e.target.value)}>{Object.entries(SUPPORT_STATUS).map(([key,label]) => <option key={key} value={key}>{label}</option>)}</select></label><label className="field"><span>답변</span><textarea rows={6} maxLength={4000} value={reply} disabled={busy} onChange={e => setReply(e.target.value)} /></label><button className="btn primary" disabled={busy || (status === 'resolved' && reply.trim().length < 1)}>답변과 상태 저장</button></form>}</>}
+<td><button className="btn ghost" disabled={busy} onClick={() => setSelected(ticket)}>문의 열기</button></td></tr>)}</tbody></table></div>{!data.items.length && <p className="account-empty">접수된 문의가 없어요.</p>}{selected && <AdminSupportModal key={selected.id} ticket={selected} busy={busy} onClose={() => setSelected(null)} onSave={saveReply} />}</>}
       {tab === 'audit' && data && <><div className="admin-table-wrap"><table className="admin-table"><thead><tr><th scope="col">변경 일시</th><th scope="col">작업</th><th scope="col">관리자</th><th scope="col">대상</th><th scope="col">상세</th></tr></thead><tbody>{data.items.map(item => <tr key={item.id}><td>{date(item.created_at)}</td><td>{ACTIONS[item.action] || item.action}</td><td>{item.actor}</td><td>{item.target}</td><td><details><summary>변경 내용</summary><pre className="audit-details">{JSON.stringify(item.details, null, 2)}</pre></details></td></tr>)}</tbody></table></div>{!data.items.length && <p>아직 변경 이력이 없어요.</p>}</>}
       {tab === 'settings' && draft && <form onSubmit={saveSettings}><p className="admin-settings-note">현재 버전 {settings.version}. 새 설정은 다음 러닝부터 적용됩니다. 진행 중인 러닝은 시작 시 설정을 유지해요.</p><fieldset disabled={busy}>
         {Array.from(new Set(SETTING_FIELDS.map(([group]) => group))).map(group => <section className="settings-group" key={group}><h3>{group}</h3><div className="admin-table-wrap"><table className="admin-table"><thead><tr><th scope="col">설정 항목</th><th scope="col">허용 범위</th><th scope="col">설정값</th></tr></thead><tbody>{SETTING_FIELDS.filter(([g]) => g === group).map(([,key,label,min,max,step]) => <tr key={key}><th scope="row">{label}</th><td>{min} ~ {max}</td><td><input aria-label={label} type="number" required min={min} max={max} step={step} value={draft[key]} onChange={e => setDraft({ ...draft, [key]: e.target.value === '' ? '' : Number(e.target.value) })} /></td></tr>)}</tbody></table></div></section>)}
+        <section className="settings-group"><h3>레벨별 필요 경험치</h3><p>거리는 1km당 평균 경험치와 완주 보너스 기준이며 점수 보너스는 포함하지 않아요. 누적 경험치는 아래 레벨별 능력치 표에서 수정해요.</p><div className="admin-table-wrap level-table"><table className="admin-table xp-level-table"><thead><tr><th scope="col">레벨</th><th scope="col">누적 필요 경험치</th><th scope="col">이전 레벨에서 필요한 경험치</th><th scope="col">완주 기준 누적 거리 (약)</th><th scope="col">해금</th></tr></thead><tbody>{levelXpTable(draft).map(row => { const boost = draft.levels[row.level - 1]?.boost, before = draft.levels[row.level - 2]?.boost || 0; const unlocks = [boost > before && (before ? `부스터 ${boost}초` : `부스터 해금 ${boost}초`), row.level === FREE_PACE_LEVEL && '자유 페이스 설정', row.level === Number(draft.autoLevel) && 'AUTO 러닝'].filter(Boolean); return <tr key={row.level}><th scope="row">Lv.{row.level}</th><td className="numeric-cell">{row.xp.toLocaleString()} XP</td><td className="numeric-cell">{row.level === 1 ? '시작' : `+${row.gap.toLocaleString()} XP`}</td><td className="numeric-cell">{row.km === null ? '계산 불가' : `${row.km.toLocaleString(undefined, { maximumFractionDigits: 1 })} km`}</td><td>{unlocks.join(' · ') || ''}</td></tr> })}</tbody></table></div></section>
         <section className="settings-group"><h3>러닝 강도 3가지</h3><p>기본 페이스에 추가할 시간과 체력 소모 배율이에요.</p><div className="admin-table-wrap"><table className="admin-table"><thead><tr><th scope="col">강도</th><th scope="col">이름</th><th scope="col">설명</th><th scope="col">추가 페이스 초/km</th><th scope="col">체력 소모 배율</th></tr></thead><tbody>{draft.intensities.map((effort,index) => <tr key={effort.id}><th scope="row">{effort.id}</th>{[['label','이름','text'],['description','설명','text'],['extraPace','추가 페이스 초/km','number'],['drain','체력 소모 배율','number']].map(([key,label,type]) => <td key={key}><input aria-label={effort.id + " " + label} type={type} required maxLength={key === 'label' ? 20 : 100} min={key === 'drain' ? .1 : 0} max={key === 'drain' ? 5 : 600} step={key === 'drain' ? .05 : 1} value={effort[key]} onChange={e => setDraft({ ...draft, intensities: draft.intensities.map((row,i) => i === index ? { ...row, [key]: type === 'number' && e.target.value !== '' ? Number(e.target.value) : e.target.value } : row) })} /> </td>)}</tr>)}</tbody></table></div></section>
-        <section className="settings-group"><h3>레벨별 능력치</h3><p>페이스는 초/km 단위예요. 부스터 지속 시간을 0으로 설정하면 해당 레벨에서는 사용할 수 없어요.</p><div className="admin-table-wrap level-table"><table className="admin-table"><thead><tr><th>레벨</th><th>최대 페이스</th><th>최대 체력</th><th>회복 시간 초</th><th>부스터 초</th></tr></thead><tbody>{draft.levels.map((row,index) => <tr key={row.level}><th>Lv.{row.level}</th>{[['pace',180,1800],['stamina',10,1000],['recovery',5,300],['boost',0,60]].map(([key,min,max]) => <td key={key}><input aria-label={`레벨 ${row.level} ${key}`} type="number" min={min} max={max} step={1} required value={row[key]} onChange={e => editLevel(index,key,e.target.value === '' ? '' : Number(e.target.value))} /></td>)}</tr>)}</tbody></table></div></section>
-      </fieldset><div className="settings-save"><button type="button" className="btn ghost" disabled={busy} onClick={async () => { if (await confirmAction({ title: '기본값으로 되돌릴까요?', description: '입력값만 초기화됩니다. 적용하려면 설정 저장을 눌러주세요.' })) setDraft(structuredClone(DEFAULT_SETTINGS)) }}>기본값 불러오기</button><button className="btn primary" disabled={busy || !dirty}>{busy ? '저장 중…' : '설정 저장'}</button></div></form>}
+        <section className="settings-group"><h3>레벨별 능력치</h3><p>페이스는 초/km 단위예요. 부스터 지속 시간을 0으로 설정하면 해당 레벨에서는 사용할 수 없어요.</p><div className="admin-table-wrap level-table"><table className="admin-table"><thead><tr><th>레벨</th><th>누적 경험치</th><th>최대 페이스</th><th>최대 체력</th><th>회복 시간 초</th><th>부스터 초</th></tr></thead><tbody>{draft.levels.map((row,index) => <tr key={row.level}><th>Lv.{row.level}</th>{[['xp',0,1000000000000],['pace',180,1800],['stamina',10,1000],['recovery',5,300],['boost',0,60]].map(([key,min,max]) => <td key={key}><input aria-label={`레벨 ${row.level} ${key}`} type="number" min={min} max={max} step={1} required readOnly={key === 'xp' && index === 0} value={row[key]} onChange={e => editLevel(index,key,e.target.value === '' ? '' : Number(e.target.value))} /></td>)}</tr>)}</tbody></table></div></section>
+      </fieldset><div className="settings-save"><button type="button" className="btn ghost" disabled={busy} onClick={async () => { if (await confirmAction({ title: '기본값으로 되돌릴까요?', description: '입력값만 초기화됩니다. 적용하려면 설정 저장을 눌러주세요.' })) setDraft(normalizeSettings(DEFAULT_SETTINGS)) }}>기본값 불러오기</button><button className="btn primary" disabled={busy || !dirty}>{busy ? '저장 중…' : '설정 저장'}</button></div></form>}
       {tab !== 'settings' && data && <Pagination page={page} total={data.total} disabled={busy || loading} onChange={setPage} label={`${TABS.find(([id]) => id === tab)[1]} 페이지`} />}
 
       </div>}

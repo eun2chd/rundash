@@ -6,7 +6,7 @@ export const FREE_PACE_LEVEL = 20
 export const SLOWEST_PACE = 900
 export const PACE_STEP = 5
 
-export const fastestPaceAt = (level, rules = getSettings()) => rules.levels[Math.max(1, Math.min(50, level)) - 1].pace
+export const fastestPaceAt = (level, rules = getSettings()) => rules.levels[Math.max(1, Math.min(rules.levels.length, level)) - 1].pace
 
 // First level whose fastest pace reaches this pace; null if no level does.
 export function unlockLevelFor(pace, rules = getSettings()) {

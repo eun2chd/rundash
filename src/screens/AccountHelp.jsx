@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { api } from '../lib/api'
 import Logo from '../components/Logo'
 import Captcha, { captchaEnabled } from '../components/Captcha'
+import { notify } from '../lib/notify'
 
 export default function AccountHelp({ mode, onBack }) {
   const verification = mode === 'verify-email'
@@ -26,6 +27,7 @@ export default function AccountHelp({ mode, onBack }) {
       if (verification) await api.resendVerification(email.trim(), captchaToken)
       else await api.requestPasswordReset(email.trim(), captchaToken)
       setSent(true); setCooldown(60)
+      notify.success(verification ? '인증이 필요한 계정이면 인증 메일을 보냈어요. 받은편지함과 스팸함을 확인해 주세요.' : '가입된 계정이면 재설정 메일을 보냈어요. 받은편지함과 스팸함을 확인해 주세요.', { duration: 6000 })
     } catch (err) {
       if (err.status === 429 || /rate limit|too many|after \d+ seconds/i.test(err.message)) {
         setCooldown(60)
@@ -44,7 +46,6 @@ export default function AccountHelp({ mode, onBack }) {
         <label className="field"><span>가입한 이메일</span><input type="email" required value={email} onChange={(e) => { setEmail(e.target.value); setSent(false); setError('') }} placeholder="runner@email.com" autoComplete="email" disabled={loading} /></label>
         <Captcha ref={captcha} onToken={setCaptchaToken} />
         {error && <p className="error" role="alert">{error}</p>}
-        {sent && <div className="auth-notice" role="status">{verification ? '인증이 필요한 계정이면 인증 메일이 발송됩니다.' : '가입된 계정이면 재설정 메일이 발송됩니다.'} 받은편지함과 스팸함을 확인해 주세요.</div>}
         <button className="btn primary block" disabled={loading || cooldown > 0 || captchaPending}>{loading ? '요청 중…' : captchaPending ? '보안 확인 중…' : cooldown > 0 ? `${cooldown}초 후 다시 요청` : verification ? '인증 메일 다시 받기' : '재설정 링크 받기'}</button>
         <p className="note">가장 최근에 받은 메일의 링크를 사용해 주세요.</p>
       </form>

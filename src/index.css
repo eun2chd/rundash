@@ -504,6 +504,10 @@ input[type=range] { width: 100%; margin: 14px 0 10px; accent-color: var(--olive)
 .booster-btn { border: 1px solid rgba(244,210,122,.65); color: var(--cream); }
 .booster-btn.boosting { background: rgba(244,210,122,.3); }
 .booster-btn:disabled { cursor: not-allowed; border-style: dashed; background: rgba(36,37,31,.9); }
+.auto-btn { border: 1px solid rgba(124,214,160,.6); color: var(--cream); }
+.auto-btn.on { background: rgba(124,214,160,.3); }
+.auto-btn.on svg { stroke: #7cd6a0; }
+.auto-btn.locked { border-style: dashed; cursor: not-allowed; }
 @media (max-width: 760px) {
   .hud-bc { max-width: calc(100vw - 16px); }
   .dock { max-width: 100%; overflow-x: auto; }
@@ -1277,3 +1281,9 @@ button.room-presence:focus-visible { outline: 2px solid #fff6d5; outline-offset:
 .hud-show-score .hud-tl > .score-card { display: block; }
 .hud-show-hints .hud-tc > .hint { display: block; }
 @media (prefers-reduced-motion: reduce) { .finish-confetti { display: none; } .finish-card { animation: none; } }
+
+/* ─── 토스트 알림 (react-hot-toast) ─── */
+.app-toast { font-family: 'Pretendard Variable', Pretendard, -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif !important; color: #212121 !important; font-size: 14px !important; font-weight: 500 !important; line-height: 1.6 !important; background: #fff !important; border: 1px solid #bfc2af; border-radius: 12px !important; padding: 12px 14px !important; max-width: min(380px, calc(100vw - 32px)) !important; box-shadow: 0 12px 30px rgba(30, 34, 23, .16) !important; }
+.app-modal-open { overflow: hidden; }
+.app-modal-overlay { position: fixed; inset: 0; z-index: 200; display: grid; place-items: center; padding: 16px; background: rgba(25, 29, 22, .6); backdrop-filter: blur(5px); }
+.share-modal { width: min(480px, 100%); max-height: calc(100dvh - 32px); overflow-y: auto; outline: none; padding: 24px; border: 1px solid var(--line); border-radius: 22px; background: var(--card); color: var(--ink); box-shadow: 0 24px 90px rgba(0, 0, 0, .25); }

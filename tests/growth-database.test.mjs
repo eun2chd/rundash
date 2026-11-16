@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { PGlite } from '@electric-sql/pglite'
-import { trainingFor, xpForLevel } from '../src/lib/progression.js'
+import { trainingFor } from '../src/lib/progression.js'
 import { configureSettings, DEFAULT_SETTINGS } from '../src/lib/settings.js'
 
 test('growth SQL: ownership, reward integrity, retry safety, practice and level parity', async (t) => {
@@ -35,6 +35,9 @@ test('growth SQL: ownership, reward integrity, retry safety, practice and level 
     for (const file of ['202611140001_initial.sql', '202611140002_signup_nickname_check.sql', '202611140003_runner_outfit.sql', '202611140004_runner_growth.sql', '202611140005_runner_chat.sql', '202611140006_account_profile.sql', '202611140007_admin_support_settings.sql', '202611140008_course_chat_settings.sql', '202611140009_admin_member_details.sql']) {
       await db.exec(await readFile(new URL(`../supabase/migrations/${file}`, import.meta.url), 'utf8'))
     }
+    const legacy = (await db.query('select value from public.game_settings')).rows[0].value
+    const xpForLevel = (level) => { const n = level - 1; return legacy.xpBase * n + legacy.xpStep * n * (n - 1) }
+    const paceFor = (level, intensity) => legacy.levels[level - 1].pace + legacy.intensities.find(row => row.id === intensity).extraPace
     await db.query('insert into auth.users(id) values ($1), ($2), ($3)', [alice, bob, anon])
     for (const [id, nickname] of [[alice, 'Alice'], [bob, 'Bobby'], [anon, 'Guest']]) await db.query(`insert into public.profiles(id,nickname,color,skin) values ($1,$2,'#e07b39','#f6d1b0')`, [id, nickname])
 
@@ -109,10 +112,9 @@ test('growth SQL: ownership, reward integrity, retry safety, practice and level 
       await assert.rejects(finish(runId(6), { distanceKm: 0, elapsedSec: 0 }), /다른 창/)
       await db.exec('reset role;')
       // Compare against the curve this database holds (migrations up to 009), not the app defaults.
-      configureSettings((await db.query('select value from public.game_settings')).rows[0].value)
       for (let level = 1; level <= 50; level++) {
         assert.equal(await scalar('select public.training_level($1) as value', [xpForLevel(level)]), level)
-        for (const intensity of ['easy', 'steady', 'challenge']) assert.equal(await scalar('select public.training_pace($1,$2) as value', [level, intensity]), trainingFor(xpForLevel(level), intensity).paceSec)
+        for (const intensity of ['easy', 'steady', 'challenge']) assert.equal(await scalar('select public.training_pace($1,$2) as value', [level, intensity]), paceFor(level, intensity))
       }
     })
 
@@ -122,7 +124,7 @@ test('growth SQL: ownership, reward integrity, retry safety, practice and level 
       const ticket = await start(runId(8))
       assert.equal(ticket.xp, xpForLevel(5))
       await ageRun(runId(8), 12)
-      const boostedDistance = 8 * 1.5 / trainingFor(ticket.xp, 'steady').paceSec
+      const boostedDistance = 8 * 1.5 / paceFor(5, 'steady')
       const result = await finish(runId(8), { distanceKm: boostedDistance, elapsedSec: 8, completed: false, boostUses: 1 })
       assert.equal(result.run.details.practice, false)
       assert.equal(result.run.details.growth.xpEarned, Math.floor(boostedDistance * 100))
@@ -177,7 +179,7 @@ test('growth SQL: ownership, reward integrity, retry safety, practice and level 
       const ticket = await start(runId(90))
       assert.equal(ticket.settings.xpPerKm, 100)
       await identity(bob)
-      const next = structuredClone(DEFAULT_SETTINGS)
+      const next = structuredClone(legacy)
       next.xpPerKm = 200; next.xpBase = 150; next.levels[0].pace = 570; next.chatMaxLength = 20; next.chatInterval = 5
       await assert.rejects(db.query('select public.admin_save_settings($1,1)', [JSON.stringify({ ...next, stationEveryM: 0 })]), /Invalid setting/)
       const bad = structuredClone(next); bad.levels[0].pace = null
@@ -199,7 +201,7 @@ test('growth SQL: ownership, reward integrity, retry safety, practice and level 
       const updated = await finish(runId(91), { distanceKm: 1, elapsedSec: 1000, completed: true })
       assert.equal(updated.run.details.growth.xpEarned, 240)
       await identity(bob)
-      const reset = await scalar('select public.admin_save_settings($1,2) as value', [JSON.stringify(DEFAULT_SETTINGS)])
+      const reset = await scalar('select public.admin_save_settings($1,2) as value', [JSON.stringify(legacy)])
       assert.equal(reset, 3)
       configureSettings(DEFAULT_SETTINGS)
     })

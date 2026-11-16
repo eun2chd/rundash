@@ -39,6 +39,7 @@ export const api = {
   async listSupport() { return unwrap(await getSupabase().from('support_tickets').select('*').order('created_at', { ascending: false }).limit(100)) },
   async adminMembers(query = '', page = 0, type = '', status = '') { return unwrap(await getSupabase().rpc('admin_member_directory', { p_query: query, p_page: page, p_type: type, p_status: status })) },
   async adminCreateTestAccount({ email, password, nickname }) { return unwrap(await getSupabase().rpc('admin_create_test_account', { p_email: email, p_password: password, p_nickname: nickname })) },
+  async adminResetPassword(id, reason) { unwrap(await getSupabase().rpc('admin_reset_password', { p_user_id: id, p_reason: reason })) },
   async adminSetAdmin(id, admin, reason) { unwrap(await getSupabase().rpc('admin_set_admin', { p_user_id: id, p_admin: admin, p_reason: reason })) },
   async adminDeleteMember(id, confirmText, reason) { unwrap(await getSupabase().rpc('admin_delete_member', { p_user_id: id, p_confirm: confirmText, p_reason: reason })) },
   async adminMemberAction(id, action, value, reason) { unwrap(await getSupabase().rpc('admin_update_member', { p_user_id: id, p_action: action, p_value: value, p_reason: reason })) },

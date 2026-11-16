@@ -151,3 +151,38 @@ body:has(.admin-screen) .site-footer { display: none; }
 .admin-test-scope ul { margin: 0; padding-left: 16px; }
 .admin-toolbar .admin-toolbar-create { margin-left: auto; }
 .admin-kpis { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+
+/* Admin modal layout: header (title, close) / scrolling body / footer (actions). */
+.admin-member-modal { display: flex; flex-direction: column; padding: 0; overflow: hidden; }
+.admin-modal-header { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 64px; padding: 14px 20px 14px 24px; background: #fff; border-bottom: 1px solid var(--line); }
+.admin-modal-header h2 { margin: 0; font-size: 20px; font-weight: 700; color: #212121; }
+.admin-modal-header .icon-btn { width: 38px; height: 38px; border: 1px solid #bfc2af; flex: none; }
+.admin-modal-form { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+.admin-modal-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 24px; }
+.admin-modal-body > :first-child { margin-top: 0; }
+.admin-modal-body .field { margin-bottom: 16px; }
+.admin-modal-footer { flex: none; display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 10px; padding: 16px 24px; background: #fff; border-top: 1px solid var(--line); }
+.admin-modal-footer .btn { margin: 0; min-width: 100px; height: 44px; }
+.admin-modal-note { display: flex; align-items: center; gap: 6px; font-size: 12px; margin-top: 4px; }
+.admin-reset-password { display: flex; align-items: flex-start; gap: 12px; border: 1px solid #dfb98c; background: #fff0dc; border-radius: 12px; padding: 14px 16px; margin: 16px 0; font-size: 13px; line-height: 1.7; }
+.admin-reset-password > svg { flex: none; width: 20px; height: 20px; margin-top: 2px; }
+.admin-reset-password strong { display: block; }
+.admin-reset-password code { display: inline-block; margin: 6px 0; padding: 4px 12px; border: 1px dashed #dfb98c; border-radius: 8px; background: #fff; font: 700 16px/1.4 ui-monospace, 'SFMono-Regular', Consolas, monospace; letter-spacing: .02em; color: #212121; }
+@media (max-width: 760px) { .admin-modal-header { padding: 12px 14px 12px 20px; } .admin-modal-body { padding: 20px; } .admin-modal-footer { padding: 12px 20px; } .admin-modal-footer .btn { flex: 1 1 0; } .admin-member-modal { padding: 0; } }
+
+/* Inquiry/report modal body. */
+.admin-quote-label { margin: 18px 0 8px; font-size: 14px; font-weight: 700; color: #212121; }
+.admin-quote { margin: 0 0 16px; padding: 14px 16px; border: 1px solid #bfc2af; border-left: 4px solid var(--olive); border-radius: 10px; background: #fff; font-size: 14px; line-height: 1.8; white-space: pre-wrap; overflow-wrap: anywhere; }
+.admin-modal-body .admin-member-facts { margin-bottom: 4px; }
+.admin-modal-field select, .admin-modal-field textarea { width: 100%; }
+.admin-modal-field small { display: block; margin-top: 4px; text-align: right; }
+
+/* Settings tables: separate borders so every cell edge (and the sticky header) stays visible. */
+.admin-content .settings-group .admin-table-wrap { border: 0; background: transparent; }
+.admin-content .settings-group .admin-table { border-collapse: separate; border-spacing: 0; background: #fff; }
+.admin-content .settings-group .admin-table :is(th, td) { border: 0; border-right: 1px solid #9ea685; border-bottom: 1px solid #9ea685; }
+.admin-content .settings-group .admin-table tr > :first-child { border-left: 1px solid #9ea685; }
+.admin-content .settings-group .admin-table thead tr:first-child > * { border-top: 1px solid #9ea685; }
+.admin-content .settings-group .admin-table thead th { position: sticky; top: 0; z-index: 1; }
+.admin-content .settings-group .admin-table td input { width: 100%; min-width: 90px; height: 38px; padding: 0 10px; border: 1px solid #bfc2af; border-radius: 8px; background: #fff; text-align: center; }
+.admin-content .settings-group .admin-table td { padding: 8px 12px; }

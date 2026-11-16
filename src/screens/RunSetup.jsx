@@ -4,7 +4,7 @@ import { ACTIVITIES, ACTIVITY_GROUPS, getActivity } from '../lib/activities'
 import ActivityBubble from '../components/ActivityBubble'
 import GrowthCard from '../components/GrowthCard'
 import AttendanceCard from '../components/AttendanceCard'
-import { INTENSITIES, experienceFor, trainingFor } from '../lib/progression'
+import { INTENSITIES, experienceFor, trainingFor, xpRangeText } from '../lib/progression'
 import CoursePreview from '../components/CoursePreview'
 import { getSettings } from '../lib/settings'
 import { LuDroplet, LuLock, LuPlus, LuPlay } from 'react-icons/lu'
@@ -96,7 +96,7 @@ export default function RunSetup({ profile, config, xp = 0, anonymous = false, s
             </p>
           </div>
 
-          <p className="xp-estimate">{anonymous ? '익명 체험은 경험치가 저장되지 않아요.' : `완주 예상 +${experienceFor({ distanceKm, completed: true }).total} XP · 중간에 멈춰도 달린 만큼 성장해요.`}</p>
+          <p className="xp-estimate">{anonymous ? '익명 체험은 경험치가 저장되지 않아요.' : `완주 예상 +${xpRangeText(experienceFor({ distanceKm, completed: true }))} XP + 점수 보너스 · 중간에 멈춰도 달린 만큼 성장해요.`}</p>
           <button className="btn primary block big" disabled={starting} onClick={onStart}>{starting ? '러닝 준비 중…' : '달리기 시작'}</button>
         </section>
 

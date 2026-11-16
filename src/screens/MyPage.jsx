@@ -3,6 +3,7 @@ import { LuUser, LuLock, LuActivity, LuCamera, LuTrash2, LuUserX } from 'react-i
 import { api } from '../lib/api'
 import { isValidPassword, PASSWORD_RULE } from '../lib/password'
 import GrowthCard from '../components/GrowthCard'
+import { notify } from '../lib/notify'
 import Captcha, { captchaEnabled } from '../components/Captcha'
 import { fmtPace, fmtTime } from '../lib/pace'
 
@@ -29,8 +30,6 @@ export default function MyPage({ user, profile, onProfile, confirmAction, onNavi
   const [tab, setTab] = useState('info')
   const [photo, setPhoto] = useState(profile?.avatar_image || null)
   const [busy, setBusy] = useState(false)
-  const [notice, setNotice] = useState('')
-  const [error, setError] = useState('')
   const [current, setCurrent] = useState('')
   const [password, setPassword] = useState('')
   const [repeat, setRepeat] = useState('')
@@ -55,45 +54,45 @@ export default function MyPage({ user, profile, onProfile, confirmAction, onNavi
   const chooseTab = async (next) => {
     if (busy || tab === next) return
     if ((photo !== (profile?.avatar_image || null) || current || password || repeat) && !await confirmAction({ title: '메뉴를 이동할까요?', description: '저장하지 않은 변경사항은 사라져요.' })) return
-    setPhoto(profile?.avatar_image || null); setCurrent(''); setPassword(''); setRepeat(''); setWithdrawText(''); setError(''); setNotice(''); setTab(next)
+    setPhoto(profile?.avatar_image || null); setCurrent(''); setPassword(''); setRepeat(''); setWithdrawText(''); setTab(next)
   }
   const pickPhoto = async (event) => {
     const file = event.target.files?.[0]; event.target.value = ''
     if (!file) return
-    setBusy(true); setError(''); setNotice('')
-    try { setPhoto(await preparePhoto(file)) } catch (err) { setError(err.message || '사진을 읽지 못했어요.') } finally { setBusy(false) }
+    setBusy(true)
+    try { setPhoto(await preparePhoto(file)) } catch (err) { notify.error(err.message || '사진을 읽지 못했어요.') } finally { setBusy(false) }
   }
   const savePhoto = async () => {
-    setBusy(true); setError(''); setNotice('')
-    try { onProfile(await api.saveAvatar(photo)); setNotice('프로필 사진을 저장했어요.') } catch { setError('사진을 저장하지 못했어요. 잠시 후 다시 시도해 주세요.') } finally { setBusy(false) }
+    setBusy(true)
+    try { onProfile(await api.saveAvatar(photo)); notify.success('프로필 사진을 저장했어요.') } catch { notify.error('사진을 저장하지 못했어요. 잠시 후 다시 시도해 주세요.') } finally { setBusy(false) }
   }
   const withdrawWord = profile?.nickname || '탈퇴'
   const withdraw = async (event) => {
     event.preventDefault()
     if (busy || withdrawText.trim() !== withdrawWord) return
     if (!await confirmAction({ title: '정말 탈퇴할까요?', description: '러너, 러닝 기록, 경험치, 채팅이 모두 삭제되며 되돌릴 수 없어요.', confirmLabel: '탈퇴하기', cancelLabel: '계속 이용하기' })) return
-    setBusy(true); setError(''); setNotice('')
+    setBusy(true)
     try { await api.deleteAccount(withdrawText.trim()); onDeleted() }
-    catch (err) { setError(err.message || '탈퇴하지 못했어요. 잠시 후 다시 시도해 주세요.'); setBusy(false) }
+    catch (err) { notify.error(err.message || '탈퇴하지 못했어요. 잠시 후 다시 시도해 주세요.'); setBusy(false) }
   }
   const changePassword = async (event) => {
     event.preventDefault()
     if (busy || captchaPending || !current || !isValidPassword(password) || password !== repeat) return
-    setBusy(true); setError(''); setNotice('')
+    setBusy(true)
     let requested = false
     try {
       if (!await confirmAction({ title: '비밀번호를 변경할까요?', description: '다음 로그인부터 새 비밀번호를 사용해 주세요.', confirmLabel: '변경하기' })) return
       requested = true
       await api.changePassword(current, password, captchaToken)
-      setCurrent(''); setPassword(''); setRepeat(''); setNotice('비밀번호를 변경했어요.')
-    } catch (err) { setError(/captcha/i.test(err?.message || '') ? '보안 확인이 만료됐어요. 잠시 후 다시 시도해 주세요.' : '변경하지 못했어요. 현재 비밀번호와 새 비밀번호 규칙을 확인해 주세요.') } finally { setBusy(false); if (requested) captcha.current?.reset() }
+      setCurrent(''); setPassword(''); setRepeat(''); notify.success('비밀번호를 변경했어요.')
+    } catch (err) { notify.error(/captcha/i.test(err?.message || '') ? '보안 확인이 만료됐어요. 잠시 후 다시 시도해 주세요.' : '변경하지 못했어요. 현재 비밀번호와 새 비밀번호 규칙을 확인해 주세요.') } finally { setBusy(false); if (requested) captcha.current?.reset() }
   }
   return <div className="mypage-screen">
     <div className="mypage-layout">
       <aside className="card mypage-sidebar"><div className="account-mini">{profile?.avatar_image ? <img src={profile.avatar_image} alt="내 프로필" /> : <span className="account-avatar"><LuUser /></span>}<strong>{nickname}</strong><span>{anonymous ? '익명 러너' : '나의 러너 계정'}</span></div><nav aria-label="마이페이지 메뉴">{[['info', '기본정보', LuUser], ['password', '비밀번호 변경', LuLock], ['records', '러닝 기록', LuActivity], ['withdraw', '회원 탈퇴', LuUserX]].map(([key, label, Icon]) => <button type="button" key={key} className={tab === key ? 'active' : ''} aria-current={tab === key ? 'page' : undefined} disabled={busy} onClick={() => chooseTab(key)}><Icon />{label}</button>)}</nav></aside>
       <section className="card mypage-content" aria-busy={busy}>
         <div className="eyebrow">{TAB_EYEBROWS[tab]}</div><h2>{TAB_TITLES[tab]}</h2>
-        {error && <p className="error" role="alert">{error}</p>}{notice && <p className="account-notice" role="status">{notice}</p>}
+        
         {anonymous ? <div className="account-empty"><LuUser /><h3>익명으로 가볍게 달리는 중</h3><p>익명 계정은 사진, 비밀번호와 러닝 기록을 저장하지 않아요. 회원 계정에서 나만의 프로필과 성장을 관리할 수 있어요.</p><button className="btn primary" onClick={() => onNavigate('signup')}>회원가입으로 이동</button></div> : <>
           {tab === 'info' && <>
             <div className="photo-editor">
@@ -103,7 +102,7 @@ export default function MyPage({ user, profile, onProfile, confirmAction, onNavi
                 <p>JPG, PNG, WebP · 최대 5MB<br />정사각형으로 자동 맞춤해요.</p>
                 <div className="photo-edit-actions">
                   <button type="button" className="btn ghost" disabled={busy || !profile} onClick={() => fileInput.current?.click()}><LuCamera />{photo ? '사진 변경' : '사진 등록'}</button>
-                  {photo && <button type="button" className="btn ghost photo-delete" disabled={busy || !profile} onClick={() => { setPhoto(null); setNotice(''); setError('') }}><LuTrash2 />사진 삭제</button>}
+                  {photo && <button type="button" className="btn ghost photo-delete" disabled={busy || !profile} onClick={() => { setPhoto(null) }}><LuTrash2 />사진 삭제</button>}
                 </div>
                 <input ref={fileInput} type="file" accept="image/jpeg,image/png,image/webp" hidden aria-label="프로필 사진 선택" onChange={pickPhoto} disabled={busy} />
               </div>
@@ -114,13 +113,13 @@ export default function MyPage({ user, profile, onProfile, confirmAction, onNavi
               <label className="field"><span>이메일</span><input value={user.email || ''} readOnly /></label>
             </div>
             <div className="account-details">
-              <div><span>이메일 인증</span><strong>{user.email_confirmed_at ? '인증 완료' : '인증 대기'}</strong>{!user.email_confirmed_at && <><button className="link" disabled={busy || captchaPending} onClick={async () => { setBusy(true); setError(''); try { await api.resendVerification(user.email, captchaToken); setNotice('인증 이메일을 다시 보냈어요.') } catch { setError('메일을 보내지 못했어요. 잠시 후 다시 시도해 주세요.') } finally { setBusy(false); captcha.current?.reset() } }}>인증 메일 다시 받기</button><Captcha ref={captcha} onToken={setCaptchaToken} /></>}</div>
+              <div><span>이메일 인증</span><strong>{user.email_confirmed_at ? '인증 완료' : '인증 대기'}</strong>{!user.email_confirmed_at && <><button className="link" disabled={busy || captchaPending} onClick={async () => { setBusy(true); try { await api.resendVerification(user.email, captchaToken); notify.success('인증 이메일을 다시 보냈어요.') } catch { notify.error('메일을 보내지 못했어요. 잠시 후 다시 시도해 주세요.') } finally { setBusy(false); captcha.current?.reset() } }}>인증 메일 다시 받기</button><Captcha ref={captcha} onToken={setCaptchaToken} /></>}</div>
               <div><span>가입일</span><strong>{new Date(user.created_at).toLocaleDateString('ko-KR')}</strong></div>
             </div>
             <div className="account-actions">
               <p className="photo-save-status" role="status">{photoChanged ? '사진 변경 후 저장을 눌러주세요.' : '저장할 변경사항이 없어요.'}</p>
               <div className="account-action-buttons">
-                <button type="button" className="btn ghost" disabled={busy || !photoChanged} onClick={() => { setPhoto(profile?.avatar_image || null); setNotice(''); setError('') }}>변경 취소</button>
+                <button type="button" className="btn ghost" disabled={busy || !photoChanged} onClick={() => { setPhoto(profile?.avatar_image || null) }}>변경 취소</button>
                 <button type="button" className="btn primary" disabled={busy || !profile || !photoChanged} onClick={savePhoto}>{busy ? '처리 중…' : '사진 저장'}</button>
               </div>
             </div>

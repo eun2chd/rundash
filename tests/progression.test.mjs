@@ -1,11 +1,12 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { experienceFor, progressionFor, trainingFor, xpForLevel } from '../src/lib/progression.js'
+import { experienceFor, progressionFor, trainingFor, xpForLevel, autoUnlocked, xpRangeText } from '../src/lib/progression.js'
+import { DEFAULT_SETTINGS } from '../src/lib/settings.js'
 import { advanceSimulation, activateBooster } from '../src/lib/simulation.js'
 import { drainPerKm } from '../src/lib/stamina.js'
 
 test('level boundaries, milestones and all three intensities grow consistently', () => {
-  for (let level = 1; level <= 50; level++) {
+  for (let level = 1; level <= 100; level++) {
     const xp = xpForLevel(level)
     const current = progressionFor(xp)
     assert.equal(current.level, level)
@@ -22,12 +23,28 @@ test('level boundaries, milestones and all three intensities grow consistently',
   assert.equal(progressionFor(xpForLevel(5)).boosterUnlocked, true)
   assert.equal(progressionFor(xpForLevel(20)).boosterDuration, 12)
   assert.equal(progressionFor(xpForLevel(30)).boosterDuration, 15)
-  assert.equal(progressionFor(1e8).level, 50)
+  assert.equal(progressionFor(xpForLevel(80)).boosterDuration, 20)
+  assert.equal(progressionFor(1e8).level, 100)
+  assert.equal(progressionFor(1e8).needed, 0)
+})
+
+test('100 levels climb to 3,400,000 XP and AUTO unlocks at Lv.80', () => {
+  const levels = DEFAULT_SETTINGS.levels
+  assert.equal(levels.length, 100)
+  assert.equal(levels[0].xp, 0); assert.equal(levels[1].xp, 100); assert.equal(levels[99].xp, 3400000)
+  for (let i = 1; i < 100; i++) assert.ok(levels[i].xp > levels[i - 1].xp, `Lv.${i + 1} must need more XP`)
+  assert.equal(levels[79].xp, 1730510)
+  assert.equal(progressionFor(1730509).level, 79); assert.equal(progressionFor(1730510).level, 80)
+  assert.equal(autoUnlocked(79), false); assert.equal(autoUnlocked(80), true)
+  assert.equal(progressionFor(xpForLevel(80)).autoUnlocked, true)
+  assert.equal(progressionFor(xpForLevel(79)).autoUnlocked, false)
 })
 
 test('partial distance earns XP; completion adds 20%; practice and anonymous runs earn nothing', () => {
-  assert.deepEqual(experienceFor({ distanceKm: 1.5 }), { distance: 150, completion: 0, total: 150 })
-  assert.equal(experienceFor({ distanceKm: 5, completed: true }).total, 600)
+  assert.deepEqual(experienceFor({ distanceKm: 1.5 }), { min: 15, max: 150, total: 82 })
+  assert.deepEqual(experienceFor({ distanceKm: 5, completed: true }), { min: 60, max: 600, total: 330 })
+  assert.equal(xpRangeText(experienceFor({ distanceKm: 5, completed: true })), '60~600')
+  assert.equal(xpRangeText({ min: 1200, max: 1200 }), '1,200')
   assert.equal(experienceFor({ distanceKm: 5, completed: true, practice: true }).total, 0)
   assert.equal(experienceFor({ distanceKm: 5, completed: true, anonymous: true }).total, 0)
 })
@@ -83,4 +100,17 @@ test('level stamina affects exhaustion/recovery and a finished run cannot advanc
   const distance = finished.dist
   advance(finished, 10)
   assert.equal(finished.dist, distance)
+})
+
+test('level XP table follows the curve for any rules draft', async () => {
+  const { levelXpTable } = await import('../src/lib/progression.js')
+  const draft = { ...DEFAULT_SETTINGS, xpPerKmMin: 50, xpPerKmMax: 150, completionBonus: .2 }
+  const rows = levelXpTable(draft)
+  assert.equal(rows.length, 100)
+  assert.deepEqual(rows[0], { level: 1, xp: 0, gap: 0, km: 0 })
+  assert.equal(rows[1].xp, 100); assert.equal(rows[1].gap, 100); assert.equal(rows[1].km, 100 / 120)
+  assert.equal(rows[99].xp, 3400000); assert.equal(rows[99].gap, 3400000 - rows[98].xp)
+  const edited = levelXpTable({ ...draft, levels: draft.levels.map(row => row.level === 2 ? { ...row, xp: 240 } : row) })
+  assert.equal(edited[1].xp, 240); assert.equal(edited[1].km, 2)
+  assert.equal(levelXpTable({ ...draft, xpPerKmMin: 0, xpPerKmMax: 0 })[4].km, null)
 })

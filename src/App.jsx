@@ -12,6 +12,8 @@ import useConfirmation from './lib/useConfirmation'
 import ManualDialog from './components/ManualDialog'
 import Support from './screens/Support'
 import Footer from './components/Footer'
+import { Toaster } from 'react-hot-toast'
+import { notify } from './lib/notify'
 import { configureSettings, getSettings } from './lib/settings'
 import { readLocalCheckpoint, clearLocalCheckpoint, validCheckpoint } from './lib/runClock'
 
@@ -56,7 +58,6 @@ export default function App() {
   const startId = useRef(null)
   const [result, setResult] = useState(null)
   const [error, setError] = useState('')
-  const [notice, setNotice] = useState('')
   const [pending, setPending] = useState('')
   const [pendingRun, setPendingRun] = useState(null)
   const [saving, setSaving] = useState(false)
@@ -86,7 +87,6 @@ export default function App() {
   const enter = (u) => withLoading('러너 정보를 불러오고 있어요.', async () => {
     const [settings, status, p] = await Promise.all([api.getSettings(), api.accountStatus(), u.is_anonymous ? null : api.getProfile(u.id)])
     configureSettings(settings.value)
-    setNotice('')
     setAccount(status)
     setUser(u)
     setProfile(p)
@@ -155,6 +155,13 @@ export default function App() {
   }, [screen])
 
   useEffect(prefetchRunnerScreens, [])
+
+  // App-level failures show as a toast; the save-failure screen keeps its own message and retry.
+  useEffect(() => {
+    if (!error || screen === 'saving') return
+    notify.error(error)
+    setError('')
+  }, [error, screen])
 
   // Screens share one URL, so tell Google Tag Manager about each screen as a virtual page.
   // Only the screen name is sent: no account, email or nickname.
@@ -273,6 +280,8 @@ export default function App() {
 
   return (
     <>
+      <Toaster position="top-right" gutter={10} containerStyle={{ top: 'calc(var(--header-height) + 12px)', right: 16 }}
+        toastOptions={{ duration: 3500, className: 'app-toast', success: { iconTheme: { primary: '#5f6b3c', secondary: '#fff8e6' } }, error: { iconTheme: { primary: '#a12d1c', secondary: '#ffffff' } } }} />
       <Header user={user} profile={profile} admin={account.admin} screen={starting || pending ? 'loading' : screen} onNavigate={navigate} onLogout={requestLogout} onHelp={openManual} />
       {pending && screen !== 'loading' && <Loading overlay text={pending} />}
       {question && <ConfirmDialog {...question} onAnswer={answer} />}
@@ -280,8 +289,6 @@ export default function App() {
       <main className="app-content">
       <Suspense fallback={<Loading text="화면을 준비하고 있어요." />}>
       {screen === 'loading' && <Loading text="러너를 깨우고 있어요." />}
-      {error && screen !== 'saving' && <div className="app-error" role="alert">{error}<button className="link" onClick={() => setError('')}>닫기</button></div>}
-      {notice && !error && <div className="app-error app-notice" role="status">{notice}<button className="link" onClick={() => setNotice('')}>닫기</button></div>}
       {screen === 'saving' && (saving ? <Loading text="러닝 기록을 저장하고 있어요." /> : <div className="loading-screen"><p role="alert">기록을 저장하지 못했어요. {error}</p><button className="btn primary" onClick={() => finishRun(pendingRun, pendingDestination.current)}>다시 저장하기</button></div>)}
       {screen === 'login' && <Login onLogin={enter} onSignUp={() => navigate('signup')} onHelp={navigate} confirmAction={confirm} />}
       {screen === 'signup' && <SignUp onLogin={enter} onBack={() => navigate('login')} onVerify={() => navigate('verify-email')} confirmAction={confirm} />}
@@ -306,7 +313,7 @@ export default function App() {
       )}
       {screen === 'run' && <RunScreen key={activeConfig?.id} onCompanionStart={enterCompanionRun} overlayOpen={!!question || manualOpen} ref={runControls} profile={profile} config={activeConfig} onFinish={finishRun} confirmAction={confirm} onActivityVisibilityChange={(visible) => setConfig((previous) => ({ ...previous, showActivity: visible }))} />}
       {screen === 'result' && <Result result={result} profile={profile} persisted={!user.is_anonymous} onAgain={() => navigate('setup')} />}
-      {screen === 'mypage' && user && <MyPage user={user} profile={profile} onProfile={setProfile} confirmAction={confirm} onNavigate={navigate} onDeleted={() => { setUser(null); setProfile(null); setAccount({ admin: false, suspended: false }); setNotice('회원 탈퇴가 완료됐어요. 그동안 함께 달려주셔서 고마워요.'); setScreen('login') }} />}
+      {screen === 'mypage' && user && <MyPage user={user} profile={profile} onProfile={setProfile} confirmAction={confirm} onNavigate={navigate} onDeleted={() => { setUser(null); setProfile(null); setAccount({ admin: false, suspended: false }); notify.success('회원 탈퇴가 완료됐어요. 그동안 함께 달려주셔서 고마워요.'); setScreen('login') }} />}
       {screen === 'support' && user && <Support suspended={account.suspended} />}
       {screen === 'admin' && account.admin && <Admin confirmAction={confirm} currentUserId={user?.id} />}
       {screen === 'ranking' && user && <Ranking anonymous={user.is_anonymous} onRun={() => navigate(profile ? 'setup' : 'character')} />}

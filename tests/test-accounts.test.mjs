@@ -17,6 +17,7 @@ test('admins create confirmed test accounts that stay out of rankings, and manag
    create table auth.users(instance_id uuid, id uuid primary key, aud text, role text, email text, encrypted_password text, email_confirmed_at timestamptz,
      confirmation_token text, recovery_token text, email_change_token_new text, email_change text, raw_app_meta_data jsonb, raw_user_meta_data jsonb,
      is_anonymous boolean default false, created_at timestamptz default now(), updated_at timestamptz, last_sign_in_at timestamptz);
+   create table auth.sessions(id uuid primary key default gen_random_uuid(), user_id uuid references auth.users(id) on delete cascade);
    create table auth.identities(id uuid primary key, provider_id text, user_id uuid references auth.users(id) on delete cascade, identity_data jsonb, provider text, last_sign_in_at timestamptz, created_at timestamptz, updated_at timestamptz);
    create function extensions.gen_salt(text) returns text language sql as 'select ''bf-salt''';
    create function extensions.crypt(text, text) returns text language sql as $$ select $2 || md5($1) $$;
@@ -89,6 +90,24 @@ test('admins create confirmed test accounts that stay out of rankings, and manag
    assert.deepEqual((await db.query("select action from public.admin_audit where target=$1 and action like 'admin_%' order by id",[member])).rows.map(r => r.action),['admin_grant','admin_revoke'])
    await db.query("insert into public.account_controls(user_id,suspended,reason) values($1,true,'test')",[member])
    await identity(boss); await assert.rejects(setAdmin(member,true),/이용 정지/)
+  })
+  await t.test('admins reset an email account password to rundash123! and sign it out',async()=>{
+   const reset=(id, reason='비밀번호 분실 문의') => db.query('select public.admin_reset_password($1,$2)',[id, reason])
+   await db.exec('reset role'); await db.query('insert into auth.sessions(user_id) values($1),($1)',[testId])
+   const before=await scalar('select encrypted_password value from auth.users where id=$1',[testId])
+   await identity(member); await assert.rejects(reset(testId),/관리자/)
+   await identity(boss)
+   await assert.rejects(reset(testId,' '),/사유/)
+   await assert.rejects(reset(boss),/마이페이지/)
+   await assert.rejects(reset(anon),/이메일로 가입한 계정/)
+   await reset(testId)
+   await db.exec('reset role')
+   const after=await scalar('select encrypted_password value from auth.users where id=$1',[testId])
+   assert.notEqual(after,before); assert.equal(after,'bf-salt'+(await scalar("select md5('rundash123!') value")))
+   assert.equal(Number(await scalar('select count(*) value from auth.sessions where user_id=$1',[testId])),0)
+   assert.equal(Number(await scalar("select count(*) value from public.admin_audit where action='password_reset' and target=$1",[testId])),1)
+   await db.query('insert into public.admin_members(user_id) values($1) on conflict do nothing',[member]); await db.query('delete from public.account_controls where user_id=$1',[member])
+   await identity(boss); await assert.rejects(reset(member),/관리자 계정의 비밀번호/)
   })
  } finally { await db.close() }
 })
