@@ -186,7 +186,7 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
     tick()
     const snapshot = { version: 1, runId: config.id, savedAt: Date.now(), sim: { ...sim.current },
       stats: { ...stats.current }, items: itemsRef.current, stations, closedStations: [...closedRef.current],
-      activity, showActivity, shareActivity: socialRef.current.shareActivity, publicLocation: socialRef.current.publicLocation, rhythmElapsed: rhythm.current.elapsed }
+      activity, showActivity, shareActivity: socialRef.current.shareActivity, publicLocation: socialRef.current.publicLocation, rhythmElapsed: rhythm.current.elapsed, autoUsed: autoUsed.current }
     try { localStorage.setItem(checkpointKey(profile.userId), JSON.stringify(snapshot)) }
     catch { setCheckpointError('자동 저장이 지연되고 있어요. 잠시 후 다시 저장할게요.') }
     if (cloud && !saveBusy.current) {
@@ -223,6 +223,9 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
   })
   const autoRef = useRef(auto)
   autoRef.current = auto
+  // Remembered on the saved run so admins can tell AUTO runs apart.
+  const autoUsed = useRef(!!config.resume?.autoUsed)
+  if (auto && ready) autoUsed.current = true
   const toggleAuto = () => {
     if (!autoAvailable) return toast(`AUTO는 Lv.${getSettings().autoLevel}부터 사용할 수 있어요`, 'warn')
     const next = !autoRef.current
@@ -287,6 +290,7 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
       intensity: config.intensity,
       practice: s.practice,
       boostUses: s.boostUses,
+      autoUsed: autoUsed.current,
       completed,
       nickname: profile.nickname,
       activity,

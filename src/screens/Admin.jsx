@@ -4,6 +4,8 @@ import AdminActionMenu from '../components/AdminActionMenu'
 import AdminTestAccountModal from '../components/AdminTestAccountModal'
 import AdminReportModal from '../components/AdminReportModal'
 import AdminSupportModal from '../components/AdminSupportModal'
+import AdminRunModal, { INTENSITY_LABELS } from '../components/AdminRunModal'
+import { fmtPace, fmtTime } from '../lib/pace'
 import Pagination from '../components/Pagination'
 import NumberInput from '../components/NumberInput'
 import { num } from '../lib/format'
@@ -14,15 +16,17 @@ import { notify } from '../lib/notify'
 import './admin.css'
 // Charts load only when the dashboard is opened.
 const AdminDashboard = lazy(() => import('../components/AdminDashboard'))
-import { LuUsers, LuSettings, LuMessageCircle, LuHistory, LuShield, LuFlag, LuLayoutDashboard } from 'react-icons/lu'
+import { LuUsers, LuSettings, LuMessageCircle, LuHistory, LuShield, LuFlag, LuLayoutDashboard, LuFootprints } from 'react-icons/lu'
 import { REPORT_REASONS } from '../lib/chat'
 import { api } from '../lib/api'
 import { configureSettings, normalizeSettings, DEFAULT_SETTINGS, SETTING_FIELDS } from '../lib/settings'
 import { SUPPORT_TYPES, SUPPORT_STATUS } from './Support'
 
-const TABS = [['dashboard', '대시보드', LuLayoutDashboard], ['members', '회원 관리', LuUsers], ['support', '문의 관리', LuMessageCircle], ['reports', '채팅 신고', LuFlag], ['settings', '러닝과 경험치 설정', LuSettings], ['audit', '변경 이력', LuHistory]]
+const TABS = [['dashboard', '대시보드', LuLayoutDashboard], ['members', '회원 관리', LuUsers], ['runs', '러닝 기록', LuFootprints], ['support', '문의 관리', LuMessageCircle], ['reports', '채팅 신고', LuFlag], ['settings', '러닝과 경험치 설정', LuSettings], ['audit', '변경 이력', LuHistory]]
 const date = value => value ? new Date(value).toLocaleString('ko-KR') : '없음'
-const ACTIONS = { xp: '경험치 조정', suspend: '계정 이용 정지', restore: '계정 이용 복원', settings: '러닝 설정 변경', support_reply: '문의 답변', chat_remove: '채팅 삭제', chat_dismiss: '신고 기각', account_deleted: '계정 삭제·탈퇴', test_account_created: '테스트 계정 생성', admin_grant: '관리자 지정', admin_revoke: '관리자 해제', password_reset: '비밀번호 초기화' }
+const SAVED_RUN_TYPES = [['', '전체 기록'], ['normal', '정상 기록'], ['completed', '완주'], ['partial', '중간 종료'], ['practice', '체험 처리'], ['auto', 'AUTO 사용']]
+const ACTIVE_RUN_TYPES = [['', '진행 중 전체'], ['stale', '24시간 초과']]
+const ACTIONS = { run_closed: '러닝 강제 종료', xp: '경험치 조정', suspend: '계정 이용 정지', restore: '계정 이용 복원', settings: '러닝 설정 변경', support_reply: '문의 답변', chat_remove: '채팅 삭제', chat_dismiss: '신고 기각', account_deleted: '계정 삭제·탈퇴', test_account_created: '테스트 계정 생성', admin_grant: '관리자 지정', admin_revoke: '관리자 해제', password_reset: '비밀번호 초기화' }
 const REPORT_STATUS = { open: '처리 대기', removed: '삭제함', dismissed: '기각함' }
 
 export default function Admin({ confirmAction, currentUserId }) {
@@ -42,6 +46,10 @@ export default function Admin({ confirmAction, currentUserId }) {
   const [memberType, setMemberType] = useState('')
   const [memberStatus, setMemberStatus] = useState('')
   const [memberAction, setMemberAction] = useState('details')
+  const [runQuery, setRunQuery] = useState('')
+  const [runSearch, setRunSearch] = useState('')
+  const [runType, setRunType] = useState('')
+  const [runView, setRunView] = useState('saved')
   const [runsError, setRunsError] = useState('')
   const [busy, setBusy] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -51,14 +59,14 @@ export default function Admin({ confirmAction, currentUserId }) {
     let live = true
     setLoading(true); setError(''); setSelected(null)
     if (tab === 'dashboard') { setLoading(false); return () => { live = false } }
-    const load = tab === 'members' ? api.adminMembers(search, page, memberType, memberStatus) : tab === 'support' ? api.adminSupport(filter, page) : tab === 'reports' ? api.adminChatReports(reportFilter, page) : tab === 'audit' ? api.adminAudit(page) : api.getSettings()
+    const load = tab === 'members' ? api.adminMembers(search, page, memberType, memberStatus) : tab === 'runs' ? api.adminRunRecords(runSearch, page, runType, runView) : tab === 'support' ? api.adminSupport(filter, page) : tab === 'reports' ? api.adminChatReports(reportFilter, page) : tab === 'audit' ? api.adminAudit(page) : api.getSettings()
     load.then(value => {
       if (!live) return
       if (tab === 'settings') { setSettings(value); setDraft(normalizeSettings(value.value)) }
       else setData(value)
     }).catch(err => { if (live) setError(err.message || '불러오지 못했어요.') }).finally(() => { if (live) setLoading(false) })
     return () => { live = false }
-  }, [tab, search, filter, reportFilter, page, refresh, memberType, memberStatus])
+  }, [tab, search, filter, reportFilter, page, refresh, memberType, memberStatus, runSearch, runType, runView])
   const changeTab = async (next) => {
     if (busy || next === tab) return
     if (dirty && !await confirmAction({ title: '관리 메뉴를 이동할까요?', description: '저장하지 않은 변경사항은 사라져요.' })) return
@@ -85,6 +93,11 @@ export default function Admin({ confirmAction, currentUserId }) {
   const saveReply = async (nextStatus, nextReply) => {
     setBusy(true)
     try { await api.adminReply(selected.id, nextStatus, nextReply); setSelected(null); notify.success('문의 답변을 저장했어요.'); setRefresh(v => v + 1) }
+    finally { setBusy(false) }
+  }
+  const closeRun = async (closeReason) => {
+    setBusy(true)
+    try { await api.adminCloseRun(selected.id, closeReason); setSelected(null); notify.success('러닝을 종료했어요. 경험치 없이 체험 기록으로 처리됐어요.'); setRefresh(v => v + 1) }
     finally { setBusy(false) }
   }
   const resolveReport = async (action, decisionReason) => {
@@ -119,12 +132,41 @@ export default function Admin({ confirmAction, currentUserId }) {
           <button type="button" className="btn ghost admin-toolbar-create" disabled={busy} onClick={() => { setCreatingTest(true) }}>테스트 계정 만들기</button>
         </form></>}
       {tab === 'support' && <div className="admin-toolbar"><label className="sr-only" htmlFor="support-status">문의 상태</label><select id="support-status" value={filter} disabled={busy} onChange={e => { setFilter(e.target.value); setPage(0) }}><option value="">문의 상태 전체</option>{Object.entries(SUPPORT_STATUS).map(([key,label]) => <option key={key} value={key}>{label}</option>)}</select></div>}
+      {tab === 'runs' && <form className="admin-toolbar" onSubmit={e => { e.preventDefault(); setRunSearch(runQuery.trim()); setPage(0); setRefresh(v => v + 1) }}>
+        <label className="sr-only" htmlFor="run-view">기록 종류</label>
+        <select id="run-view" value={runView} disabled={busy} onChange={e => { setData(null); setRunView(e.target.value); setRunType(''); setPage(0) }}><option value="saved">저장된 러닝</option><option value="active">진행 중인 러닝</option></select>
+        <label className="sr-only" htmlFor="run-type">기록 필터</label>
+        <select id="run-type" value={runType} disabled={busy} onChange={e => { setRunType(e.target.value); setPage(0) }}>{(runView === 'saved' ? SAVED_RUN_TYPES : ACTIVE_RUN_TYPES).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
+        <label className="sr-only" htmlFor="run-search">닉네임 검색</label>
+        <input id="run-search" className="admin-toolbar-search" value={runQuery} disabled={busy} onChange={e => setRunQuery(e.target.value)} maxLength={100} placeholder="닉네임 검색" />
+        <button className="btn primary" disabled={busy || loading}>검색</button>
+      </form>}
       {tab === 'reports' && <div className="admin-toolbar"><label className="sr-only" htmlFor="report-status">처리 상태</label><select id="report-status" value={reportFilter} disabled={busy} onChange={e => { setReportFilter(e.target.value); setPage(0) }}><option value="">처리 상태 전체</option>{Object.entries(REPORT_STATUS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></div>}
       {loading && !data && tab !== 'settings' ? <p role="status">불러오고 있어요…</p> : loading && tab === 'settings' ? <p role="status">불러오고 있어요…</p> : <div className={`admin-results${loading ? ' loading' : ''}`} aria-busy={loading}>
       {tab === 'reports' && data && <><p className="admin-count">전체 {num(data.total)}건</p><div className="admin-table-wrap"><table className="admin-table"><thead><tr><th scope="col">상태</th><th scope="col">작성자</th><th scope="col">메시지</th><th scope="col">사유</th><th scope="col">신고 수</th><th scope="col">최근 신고</th><th scope="col">관리</th></tr></thead><tbody>{data.items.map(item => <tr key={item.message_id} className={selected?.message_id === item.message_id ? 'selected' : ''}>
 <td>{REPORT_STATUS[item.status]}</td><td>{item.author_nickname}{item.author_suspended && ' (정지됨)'}</td><td className="report-message">{item.message}</td><td>{item.reasons.map(r => REPORT_REASONS[r] || r).join(', ')}</td><td className="numeric-cell">{num(item.report_count)}건</td><td>{date(item.last_reported_at)}</td>
 <td><button className="btn ghost" disabled={busy} onClick={() => setSelected(item)}>{item.status === 'open' ? '처리하기' : '보기'}</button></td></tr>)}</tbody></table></div>{!data.items.length && <p className="account-empty">해당하는 신고가 없어요.</p>}
       {selected && <AdminReportModal key={selected.message_id} report={selected} busy={busy} onClose={() => setSelected(null)} onResolve={resolveReport} />}</>}
+      {tab === 'runs' && data && runView === 'saved' && data.summary?.all !== undefined && <><div className="admin-kpis" aria-label="러닝 기록 요약">{[['all','전체 기록','회'],['completed','완주','회'],['practice','체험 처리','회'],['auto','AUTO 사용','회']].map(([key,label,unit]) => <section key={key}><span>{label}</span><strong>{num(data.summary[key])}<small>{unit}</small></strong></section>)}</div>
+        <p className="admin-count">검색 결과 {num(data.total)}건</p><div className="admin-table-wrap" role="region" aria-label="러닝 기록" tabIndex={0}><table className="admin-table run-table"><thead><tr><th scope="col">저장 일시</th><th scope="col">러너</th><th scope="col">거리</th><th scope="col">시간</th><th scope="col">페이스</th><th scope="col">강도</th><th scope="col">점수</th><th scope="col">경험치</th><th scope="col">결과</th><th scope="col">관리</th></tr></thead>
+        <tbody>{data.items.map(run => { const d = run.details || {}; return <tr key={run.id} className={[d.practice && 'practice-row', selected?.id === run.id && 'selected'].filter(Boolean).join(' ')}>
+          <td>{date(run.created_at)}</td><td>{run.nickname}{run.is_test && <span className="admin-badge test">테스트</span>}</td>
+          <td className="numeric-cell">{num(d.distanceKm || 0, 2)} km</td><td className="numeric-cell">{fmtTime(d.elapsedSec || 0)}</td><td className="numeric-cell">{d.paceSec ? fmtPace(d.paceSec) : '-'}</td>
+          <td>{INTENSITY_LABELS[d.intensity] || d.intensity || '-'}</td><td className="numeric-cell">{num(d.score || 0)}</td><td className="numeric-cell">{num(d.growth?.xpEarned || 0)} XP</td>
+          <td className="status-cell"><span className={`admin-badge ${d.practice ? 'negative' : d.completed ? 'accent' : 'neutral'}`}>{d.practice ? '체험 처리' : d.completed ? '완주' : '중간 종료'}</span>{d.autoUsed && <span className="admin-badge neutral">AUTO</span>}</td>
+          <td><button className="btn ghost" disabled={busy} onClick={() => setSelected(run)}>상세 보기</button></td></tr> })}
+        {!data.items.length && <tr><td colSpan={10} className="empty-cell">해당하는 러닝 기록이 없어요.</td></tr>}</tbody></table></div>
+        {selected && <AdminRunModal key={selected.id} run={selected} mode="detail" busy={busy} onClose={() => setSelected(null)} />}</>}
+      {tab === 'runs' && data && runView === 'active' && data.summary?.open !== undefined && <><div className="admin-kpis" aria-label="진행 중인 러닝 요약">{[['open','진행 중','건'],['stale','24시간 초과','건']].map(([key,label,unit]) => <section key={key}><span>{label}</span><strong>{num(data.summary[key])}<small>{unit}</small></strong></section>)}</div>
+        <p className="admin-count">검색 결과 {num(data.total)}건</p><div className="admin-table-wrap" role="region" aria-label="진행 중인 러닝" tabIndex={0}><table className="admin-table run-table"><thead><tr><th scope="col">시작 일시</th><th scope="col">러너</th><th scope="col">목표</th><th scope="col">경과</th><th scope="col">현재 거리</th><th scope="col">강도</th><th scope="col">상태</th><th scope="col">관리</th></tr></thead>
+        <tbody>{data.items.map(run => { const live = run.location_at && Date.now() - Date.parse(run.location_at) < 120000; return <tr key={run.id} className={[run.stale && 'practice-row', selected?.id === run.id && 'selected'].filter(Boolean).join(' ')}>
+          <td>{date(run.started_at)}</td><td>{run.nickname}{run.is_test && <span className="admin-badge test">테스트</span>}</td>
+          <td className="numeric-cell">{num(run.target_km)} km</td><td className="numeric-cell">{fmtTime((Date.now() - Date.parse(run.started_at)) / 1000)}</td>
+          <td className="numeric-cell">{run.distance_m === null ? '-' : `${num(run.distance_m / 1000, 2)} km`}</td><td>{INTENSITY_LABELS[run.intensity] || run.intensity}</td>
+          <td className="status-cell"><span className={`admin-badge ${run.stale ? 'negative' : live ? 'accent' : 'neutral'}`}>{run.stale ? '24시간 초과' : live ? (run.paused ? '일시정지' : '달리는 중') : '연결 없음'}</span></td>
+          <td><button className="btn ghost" disabled={busy} onClick={() => setSelected(run)}>러닝 종료</button></td></tr> })}
+        {!data.items.length && <tr><td colSpan={8} className="empty-cell">진행 중인 러닝이 없어요.</td></tr>}</tbody></table></div>
+        {selected && <AdminRunModal key={selected.id} run={selected} mode="close" busy={busy} onClose={() => setSelected(null)} onCloseRun={closeRun} />}</>}
       {tab === 'members' && data && <><p className="admin-count">전체 {num(data.total)}명</p><div className="admin-table-wrap member-table-wrap" role="region" aria-label="회원 목록" tabIndex={0}>
         <table className="admin-table member-table">
           <caption className="sr-only">회원 기본정보와 러닝 현황</caption>

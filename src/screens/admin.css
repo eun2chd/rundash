@@ -238,3 +238,8 @@ button.dash-alert:hover { background: #f3f4eb; }
 .dash-chart .recharts-text { fill: #212121; }
 .dash-empty { display: grid; place-items: center; height: 240px; margin: 0; font-weight: 500; color: #212121; }
 @media (max-width: 900px) { .dash-grid { grid-template-columns: minmax(0, 1fr); } }
+
+/* Run records. */
+.admin-content .run-table tr.practice-row td { background: #fbece7; }
+.admin-content .run-table .status-cell .admin-badge + .admin-badge, .admin-content .run-table td .admin-badge { margin-left: 4px; }
+.admin-content .run-table td { white-space: nowrap; }
