@@ -112,10 +112,9 @@ export default function Hud({
       {/* 좌상단 */}
       <div className="hud-tl">
         <div className="pill">
-          <button className="icon-btn" title="종료" onClick={onQuit}><LuLogOut /></button>
+          <button type="button" className="hud-manager-toggle" onClick={onQuit}><LuLogOut aria-hidden="true" /> 러닝 종료</button>
           <button type="button" className={`hud-manager-toggle ${managePanels ? 'on' : ''}`} title="화면 관리" aria-haspopup="dialog" aria-expanded={managePanels} onClick={() => setManagePanels(true)}><LuLayoutDashboard /><span>화면 관리</span></button>
           <FriendPanel onAcceptInvite={onAcceptInvite} openRequest={friendPanelRequest} social={social} onLocate={id => { setShowMap(true); onLocateFriend(id) }} confirmAction={confirmAction} />
-          <span className="pill-title">런대시</span>
           <span className="pill-sub">코스 01</span>
         </div>
         <GroupRoster group={social.pair} userId={room.userId} />

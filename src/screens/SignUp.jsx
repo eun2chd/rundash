@@ -10,6 +10,10 @@ const POLICY_VERSION = '2026-11-15'
 export default function SignUp({ onLogin, onBack, onVerify, confirmAction }) {
   const [nickname, setNickname] = useState('')
   const [email, setEmail] = useState('')
+  const [checkedEmail, setCheckedEmail] = useState('')
+  const [checkingEmail, setCheckingEmail] = useState(false)
+  const normalizedEmail = email.trim().toLowerCase()
+  const emailAvailable = !!checkedEmail && checkedEmail === normalizedEmail
   const [password, setPassword] = useState('')
   const [passwordConfirm, setPasswordConfirm] = useState('')
   const [loading, setLoading] = useState(false)
@@ -30,6 +34,17 @@ export default function SignUp({ onLogin, onBack, onVerify, confirmAction }) {
   const available = nicknameStatus === 'available' && checkedNickname === name
   const passwordsMatch = isValidPassword(password) && password === passwordConfirm
   const passwordMismatch = passwordConfirm.length > 0 && password !== passwordConfirm
+
+  const checkEmail = async () => {
+    if (checkingEmail) return
+    setCheckingEmail(true); setCheckedEmail(''); setError('')
+    try {
+      const taken = await api.isEmailTaken(normalizedEmail)
+      if (taken) setError('이미 가입한 이메일이에요. 로그인하거나 비밀번호 찾기를 이용해 주세요.')
+      else setCheckedEmail(normalizedEmail)
+    } catch (err) { setError(err.message) }
+    finally { setCheckingEmail(false) }
+  }
 
   const checkNickname = async () => {
     if (!validNickname || checking) return
@@ -52,6 +67,7 @@ export default function SignUp({ onLogin, onBack, onVerify, confirmAction }) {
     const name = nickname.trim()
     if (!/^[가-힣a-zA-Z0-9_]{2,10}$/.test(name)) return setError('닉네임은 2~10자, 한글·영문·숫자·_로 정해 주세요.')
     if (['admin', '관리자', '운영자'].includes(name.toLowerCase())) return setError('사용할 수 없는 닉네임이에요.')
+    if (!emailAvailable) return setError('가입 이메일 중복 확인을 먼저 해 주세요.')
     if (!available) return setError('닉네임 중복 확인을 먼저 해주세요.')
     if (!isValidPassword(password)) return setError('비밀번호는 8자 이상, 특수문자를 1개 이상 포함해 주세요.')
     if (password !== passwordConfirm) return setError('비밀번호가 서로 달라요. 다시 확인해 주세요.')
@@ -68,7 +84,11 @@ export default function SignUp({ onLogin, onBack, onVerify, confirmAction }) {
         return
       }
       requested = true
-      const data = await api.signUp({ email: email.trim(), password, nickname: name, consent: { age14: true, terms: POLICY_VERSION, privacy: POLICY_VERSION, agreedAt: new Date().toISOString() }, captchaToken })
+      const data = await api.signUp({ email: normalizedEmail, password, nickname: name, consent: { age14: true, terms: POLICY_VERSION, privacy: POLICY_VERSION, agreedAt: new Date().toISOString() }, captchaToken })
+      if (Array.isArray(data.user?.identities) && !data.user.identities.length) {
+        setCheckedEmail('')
+        return setError('이메일 가입 상태가 변경됐어요. 주소를 다시 확인해 주세요.')
+      }
       if (data.session) await onLogin(data.user)
       else { setSent(true); setPassword(''); setPasswordConfirm('') }
     } catch (err) {
@@ -106,7 +126,12 @@ export default function SignUp({ onLogin, onBack, onVerify, confirmAction }) {
             <small id="nickname-help">2~10자 · 한글, 영문, 숫자, _ · 대소문자 구분 없음</small>
             <small id="nickname-status" className={nicknameError ? 'warn' : ''} role="status">{nicknameError || (available ? '사용할 수 있는 닉네임이에요.' : checking ? '닉네임을 확인하고 있어요.' : '닉네임을 입력한 뒤 중복 확인을 눌러주세요.')}</small>
           </div>
-          <label className="field"><span>이메일</span><input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="runner@email.com" autoComplete="email" disabled={loading} /></label>
+          <div className="field">
+            <label htmlFor="signup-email">가입 이메일</label>
+            <div className="nickname-check-row"><input id="signup-email" type="email" required maxLength={254} value={email} onChange={e => { setEmail(e.target.value); setCheckedEmail(''); setError('') }} placeholder="runner@email.com" autoComplete="email" disabled={loading || checkingEmail} />
+              <button type="button" className="btn ghost" disabled={loading || checkingEmail || !normalizedEmail || emailAvailable} onClick={checkEmail}>{checkingEmail ? '확인 중…' : '중복 확인'}</button></div>
+            <small role="status">{emailAvailable ? '사용할 수 있는 이메일이에요.' : '가입할 주소를 입력하고 중복 확인을 눌러 주세요.'}</small>
+          </div>
           <label className="field"><span>비밀번호</span><PasswordInput required minLength={8} value={password} onChange={(e) => { setPassword(e.target.value); setError('') }} placeholder="8자 이상 · 특수문자 포함" autoComplete="new-password" disabled={loading} /><small>{PASSWORD_RULE}</small></label>
           <label className="field"><span>비밀번호 확인</span><PasswordInput required minLength={8} value={passwordConfirm} onChange={(e) => { setPasswordConfirm(e.target.value); setError('') }} placeholder="비밀번호를 한 번 더 입력해 주세요" autoComplete="new-password" aria-invalid={passwordMismatch} aria-describedby="signup-password-status" disabled={loading} /><small id="signup-password-status" className={passwordMismatch ? 'warn' : ''} role="status">{passwordMismatch ? '비밀번호가 서로 달라요.' : passwordsMatch ? '비밀번호가 일치해요.' : '같은 비밀번호를 한 번 더 입력해 주세요.'}</small></label>
           <fieldset className="signup-agreements" disabled={loading}>
@@ -117,7 +142,7 @@ export default function SignUp({ onLogin, onBack, onVerify, confirmAction }) {
           </fieldset>
           <Captcha ref={captcha} onToken={setCaptchaToken} />
           {error && <p className="error" role="alert">{error}</p>}
-          <button className="btn primary block" disabled={loading || !available || !passwordsMatch || !agreedAll || captchaPending}>{loading ? '가입하는 중…' : '가입하고 러너 만들기 →'}</button>
+          <button className="btn primary block" disabled={loading || !emailAvailable || !available || !passwordsMatch || !agreedAll || captchaPending}>{loading ? '가입하는 중…' : '가입하고 러너 만들기 →'}</button>
           <p className="note">닉네임은 캐릭터 저장 시 확정돼요.</p>
         </form>}
       </section>

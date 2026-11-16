@@ -9,6 +9,9 @@ export function authErrorMessage(error) {
 }
 
 export const api = {
+  async isEmailTaken(email) {
+    return unwrap(await getSupabase().rpc('registration_email_taken', { p_email: email }))
+  },
   async locateFriend(id) { return unwrap(await getSupabase().rpc('locate_running_friend', { p_target: id })) },
   async socialTick({ runId, distance, speed, paused, publicLocation, allowInvites, activity = 'rest', shareActivity = true }) {
     const args = { p_run_id: runId, p_distance: distance, p_speed: speed, p_paused: paused, p_public: publicLocation, p_invites: allowInvites }

@@ -54,7 +54,6 @@ export function restoreSimulation(base, checkpoint, now = Date.now()) {
   restored.practice = !!(base.practice || restored.practice)
   // New mounts always use real time; a development practice run stays practice.
   restored.timeScale = 1
-  if (Number.isFinite(base.weatherTimeMs)) restored.weatherTimeMs = checkpoint.savedAt
-  advanceElapsed(restored, Math.max(0, (now - checkpoint.savedAt) / 1000))
+  if (Number.isFinite(base.weatherTimeMs)) restored.weatherTimeMs = now
   return restored
 }

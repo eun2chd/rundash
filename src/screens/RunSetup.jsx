@@ -62,7 +62,7 @@ export default function RunSetup({ profile, config, xp = 0, anonymous = false, s
               <div>
                 <div className="home-hero-progress">
                   <strong>{num(resumeKm, 2)}<small> / {num(resumeTarget)} km</small></strong>
-                  <span>{resumeOffer.payload?.sim.paused ? '일시정지 중' : '달리는 중'} · {Math.round(resumeProgress * 100)}%</span>
+                  <span>저장된 진행률 · {Math.round(resumeProgress * 100)}%</span>
                 </div>
                 <div className="home-hero-track" role="progressbar" aria-label="달린 거리" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(resumeProgress * 100)}><span style={{ width: `${resumeProgress * 100}%` }} /></div>
               </div>

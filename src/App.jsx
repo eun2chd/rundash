@@ -263,16 +263,24 @@ export default function App() {
     clearLocalCheckpoint(user.id); setResumeOffer(null); setError(''); setScreen('run')
   }
 
+  const suspendRun = async (payload, destination) => {
+    if (destination === 'logout') return logout()
+    setResumeOffer({ payload, session: { id: payload.runId, target_km: activeConfig.distanceKm } })
+    setError(''); setScreen(destination)
+  }
+
   const resumeRun = async () => {
     if (!resumeOffer || starting) return
     setStarting(true)
     try {
-      if (!await confirm({ title: '진행 중이던 러닝을 이어갈까요?', description: '달리던 러너는 마지막 저장 시점부터 경과 시간을 반영하고, 일시정지 중이었다면 그대로 복원해요.' })) return
+      if (!await confirm({ title: '진행 중이던 러닝을 이어갈까요?', description: '마지막으로 저장한 거리와 시간에서 다시 시작해요.' })) return
       const fresh = await withLoading('달리던 러닝을 불러오고 있어요.', async () => (await Promise.all([api.loadCheckpoint(), loadRunScreen()]))[0])
       if (fresh?.session.id !== resumeOffer.session.id) throw new Error('이미 종료되거나 다른 곳에서 새로 시작한 러닝이에요.')
       const session = fresh.session
+      const payload = [fresh.payload, resumeOffer.payload, readLocalCheckpoint(user.id)]
+        .filter(value => validCheckpoint(value, session.id)).sort((a, b) => b.savedAt - a.savedAt)[0]
       configureSettings(session.rules)
-      setActiveConfig({ ...config, ...trainingFor(session.xp_at_start, session.intensity, false, Number(session.pace_sec)), paceSec: Number(session.pace_sec), distanceKm: Number(session.target_km), id: session.id, anonymous: false, practice: session.practice, activity: resumeOffer.payload?.activity || 'rest', showActivity: resumeOffer.payload?.showActivity !== false, resume: resumeOffer.payload || undefined })
+      setActiveConfig({ ...config, ...trainingFor(session.xp_at_start, session.intensity, false, Number(session.pace_sec)), paceSec: Number(session.pace_sec), distanceKm: Number(session.target_km), id: session.id, anonymous: false, practice: session.practice, activity: payload?.activity || 'rest', showActivity: payload?.showActivity !== false, resume: payload })
       setResumeOffer(null); setError(''); setScreen('run')
     } catch (err) { setError(err.message || '러닝을 복구하지 못했어요.') }
     finally { setStarting(false) }
@@ -311,7 +319,7 @@ export default function App() {
           onResume={resumeRun}
         />
       )}
-      {screen === 'run' && <RunScreen key={activeConfig?.id} onCompanionStart={enterCompanionRun} overlayOpen={!!question || manualOpen} ref={runControls} profile={profile} config={activeConfig} onFinish={finishRun} confirmAction={confirm} onActivityVisibilityChange={(visible) => setConfig((previous) => ({ ...previous, showActivity: visible }))} />}
+      {screen === 'run' && <RunScreen key={activeConfig?.id} onCompanionStart={enterCompanionRun} overlayOpen={!!question || manualOpen} ref={runControls} profile={profile} config={activeConfig} onFinish={finishRun} onSuspend={suspendRun} confirmAction={confirm} onActivityVisibilityChange={(visible) => setConfig((previous) => ({ ...previous, showActivity: visible }))} />}
       {screen === 'result' && <Result result={result} profile={profile} persisted={!user.is_anonymous} onAgain={() => navigate('setup')} />}
       {screen === 'mypage' && user && <MyPage user={user} profile={profile} onProfile={setProfile} confirmAction={confirm} onNavigate={navigate} onDeleted={() => { setUser(null); setProfile(null); setAccount({ admin: false, suspended: false }); notify.success('회원 탈퇴가 완료됐어요. 그동안 함께 달려주셔서 고마워요.'); setScreen('login') }} />}
       {screen === 'support' && user && <Support suspended={account.suspended} />}

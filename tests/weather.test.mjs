@@ -41,6 +41,6 @@ test('background catch-up crosses weather boundaries identically to normal ticks
  assert(Math.abs(normal.stamina-background.stamina)<1e-6)
  const payload={version:1,runId:'test',savedAt:start,sim:runner(start),items:[],stations:[],closedStations:[],stats:{}}
  const restored=restoreSimulation(runner(start+400000),payload,start+400000)
- assert(Math.abs(restored.dist-background.dist)<1e-6)
+ assert.equal(restored.dist,payload.sim.dist)
  assert.equal(weatherAt(restored.weatherTimeMs).id,weatherAt(background.weatherTimeMs).id)
 })

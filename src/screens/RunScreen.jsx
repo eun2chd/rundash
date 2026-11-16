@@ -89,7 +89,7 @@ const Scene = memo(function Scene({ sim, rhythm, finishDistance, profile, activi
   )
 })
 
-export default forwardRef(function RunScreen({ profile, config, onFinish, confirmAction, onActivityVisibilityChange, overlayOpen = false, onCompanionStart }, ref) {
+export default forwardRef(function RunScreen({ profile, config, onFinish, onSuspend, confirmAction, onActivityVisibilityChange, overlayOpen = false, onCompanionStart }, ref) {
   const totalM = config.distanceKm * 1000
   const cadence = cadenceFor(config.paceSec)
   const ghosts = MOCK_RUNNERS
@@ -179,22 +179,27 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
     priorGroup.current=group?.id || null
   },[social.pair?.id,social.pair?.paused,tick])
   const persistence = useRef(null)
-  const saveBusy = useRef(false)
+  const cloudWrite = useRef(null)
+  const leaving = useRef(false)
   const [checkpointError, setCheckpointError] = useState('')
-  persistence.current = async (cloud = false) => {
-    if (config.anonymous) return
+  persistence.current = async (cloud = false, final = false, pausedOnResume = sim.current.paused) => {
+    if (config.anonymous || (leaving.current && !final)) return
     tick()
-    const snapshot = { version: 1, runId: config.id, savedAt: Date.now(), sim: { ...sim.current },
+    const snapshot = { version: 1, runId: config.id, savedAt: Date.now(), sim: { ...sim.current, paused: pausedOnResume },
       stats: { ...stats.current }, items: itemsRef.current, stations, closedStations: [...closedRef.current],
       activity, showActivity, shareActivity: socialRef.current.shareActivity, publicLocation: socialRef.current.publicLocation, rhythmElapsed: rhythm.current.elapsed, autoUsed: autoUsed.current }
     try { localStorage.setItem(checkpointKey(profile.userId), JSON.stringify(snapshot)) }
     catch { setCheckpointError('자동 저장이 지연되고 있어요. 잠시 후 다시 저장할게요.') }
-    if (cloud && !saveBusy.current) {
-      saveBusy.current = true
-      try { await api.saveCheckpoint(config.id, snapshot); setCheckpointError('') }
-      catch { setCheckpointError('자동 저장이 지연되고 있어요. 잠시 후 다시 저장할게요.') }
-      finally { saveBusy.current = false }
+    if (final && cloudWrite.current) await cloudWrite.current.catch(() => {})
+    if (cloud && !cloudWrite.current) {
+      cloudWrite.current = api.saveCheckpoint(config.id, snapshot)
+      try { await cloudWrite.current; setCheckpointError('') }
+      catch (error) {
+        if (final) throw error
+        setCheckpointError('자동 저장이 지연되고 있어요. 잠시 후 다시 저장할게요.')
+      } finally { cloudWrite.current = null }
     }
+    return snapshot
   }
   useEffect(() => {
     const advance = () => tick()
@@ -202,10 +207,12 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
     const timer = setInterval(advance, 100)
     const localTimer = setInterval(() => persistence.current?.(), 1000)
     const cloudTimer = setInterval(() => persistence.current?.(true), 10000)
+    const restoreClock = event => { if (event.persisted) clock.current = performance.now() }
+    window.addEventListener('pageshow', restoreClock)
     window.addEventListener('pagehide', save)
     window.addEventListener('focus', save)
     document.addEventListener('visibilitychange', save)
-    return () => { clearInterval(timer); clearInterval(localTimer); clearInterval(cloudTimer); window.removeEventListener('pagehide', save); window.removeEventListener('focus', save); document.removeEventListener('visibilitychange', save) }
+    return () => { clearInterval(timer); clearInterval(localTimer); clearInterval(cloudTimer); window.removeEventListener('pageshow', restoreClock); window.removeEventListener('pagehide', save); window.removeEventListener('focus', save); document.removeEventListener('visibilitychange', save) }
   }, [tick])
   const finishedRef = useRef(false)
   const exitPending = useRef(false)
@@ -332,17 +339,24 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
     if (finishedRef.current || sim.current.finished || exitPending.current || !ready) return
     exitPending.current = true
     const wasPaused = sim.current.paused
-    if (!socialRef.current.pair) { sim.current.paused = true; setPaused(true) }
+    sim.current.paused = true; setPaused(true)
     const exitingToMenu = destination !== 'result'
     try {
       const accepted = await confirmAction({
         title: destination === 'logout' ? '러닝을 종료하고 로그아웃할까요?' : exitingToMenu ? '러닝을 종료하고 이동할까요?' : '러닝을 여기서 종료할까요?',
-        description: config.anonymous ? '현재까지 달린 결과를 확인할 수 있지만, 익명 체험 기록과 경험치는 저장되지 않아요.' : sim.current.practice ? '개발 체험 기록으로 저장되며 경험치는 지급되지 않아요.' : '달린 거리까지 기록과 경험치를 저장해요. 남은 코스는 이어서 달릴 수 없어요.',
-        confirmLabel: destination === 'logout' ? '종료 후 로그아웃' : exitingToMenu ? '종료하고 이동' : '종료하고 결과 보기',
+        description: config.anonymous ? '현재까지 달린 결과를 확인할 수 있지만, 익명 체험 기록과 경험치는 저장되지 않아요.' : '현재 거리와 시간을 저장해요. 나중에 러닝 준비 화면에서 이어서 달릴 수 있어요.',
+        confirmLabel: destination === 'logout' ? '종료 후 로그아웃' : exitingToMenu ? '종료하고 이동' : config.anonymous ? '종료하고 결과 보기' : '저장하고 나가기',
         cancelLabel: wasPaused ? '돌아가기' : '계속 달리기',
       })
-      if (accepted) finish(false, destination)
-      else if (!socialRef.current.pair) { sim.current.paused = wasPaused; setPaused(wasPaused) }
+      if (!accepted) { sim.current.paused = wasPaused; setPaused(wasPaused); return }
+      if (config.anonymous) return finish(false, destination)
+      leaving.current = true
+      const snapshot = await persistence.current(true, true, wasPaused)
+      await onSuspend(snapshot, destination === 'result' ? 'setup' : destination)
+    } catch {
+      leaving.current = false
+      sim.current.paused = wasPaused; setPaused(wasPaused)
+      toast('종료를 완료하지 못했어요. 연결을 확인하고 다시 시도해 주세요.', 'warn')
     } finally { exitPending.current = false }
   }
   const pauseForManual = () => {

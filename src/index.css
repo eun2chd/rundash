@@ -150,7 +150,6 @@ input[type=range] { width: 100%; margin: 14px 0 10px; accent-color: var(--olive)
 .hud .pill, .hud .panel, .hud .stat-card, .hud .score-card, .hud .dock, .hud .rhythm, .hud button { pointer-events: auto; }
 .pill, .panel, .stat-card, .score-card, .dock, .rhythm { background: var(--glass); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid var(--glass-line); }
 .pill { display: inline-flex; align-items: center; gap: 6px; height: 40px; padding: 0 8px; border-radius: 99px; }
-.pill-title { font-weight: 700; padding-left: 4px; }
 .pill-sub { font-size: 11px; opacity: 1; padding: 0 6px; }
 .icon-btn { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; transition: background .15s; }
 .icon-btn:hover, .icon-btn.on { background: rgba(255,248,230,.14); }
@@ -709,7 +708,7 @@ input[type=range] { width: 100%; margin: 14px 0 10px; accent-color: var(--olive)
 @media (max-width: 420px) { .header-logo .brand-mark.small { font-size: 18px; } .header-link { font-size: 11px; padding: 0 6px; } .manual-trigger { width: 29px; height: 29px; margin-left: 2px; } }
 
 /* Local developer tools */
-.hud-tl { max-height: calc(100% - 28px); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; pointer-events: auto; }
+.hud-tl { max-height: calc(100% - 28px); overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; scrollbar-width: thin; pointer-events: auto; }
 .hud-left-map { width: 100%; }
 @media (max-width: 760px) { .hud-left-map { position: fixed; top: 130px; left: 10px; width: 200px; z-index: 35; } }
 .developer-debug { position: absolute; left: 14px; bottom: 14px; width: 270px; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; z-index: 40; pointer-events: auto; }
@@ -894,7 +893,8 @@ input[type=range] { width: 100%; margin: 14px 0 10px; accent-color: var(--olive)
 
 
 /* Friend tools share the map toolbar and use a consistent 8/16/20px rhythm. */
-.hud-tl .pill:first-child { position: relative; overflow: visible; }
+.hud-tl > .pill:first-child { position: relative; overflow: visible; max-width: 100%; height: auto; min-height: 40px; flex: none; flex-wrap: wrap; padding-block: 4px; border-radius: 16px; }
+.hud-tl > .pill:first-child > * { flex: none; white-space: nowrap; }
 .hud-tl .friends-widget { position: static; display: flex; pointer-events: auto; }
 .friend-toggle { position: relative; }
 .friend-invite-dot { position: absolute; top: 2px; right: 2px; width: 7px; height: 7px; border-radius: 50%; background: #f29259; }
@@ -958,7 +958,6 @@ button.room-presence:focus-visible { outline: 2px solid #fff6d5; outline-offset:
 /* Let the map toolbar popover escape the scrollable stats column. */
 .hud-tl:has(.friends-panel) { overflow: visible; z-index: 60; }
 .hud-tl:has(.friends-panel) > .pill:first-child { z-index: 2; }
-.hud-tl > .pill:first-child .pill-title { white-space: nowrap; }
 
 .hud-tl .friend-toggle { width: auto; min-width: 30px; padding: 0 8px; display: inline-flex; align-items: center; gap: 6px; }
 .friend-group-count { font-size: 11px; line-height: 1; white-space: nowrap; }
@@ -973,8 +972,8 @@ button.room-presence:focus-visible { outline: 2px solid #fff6d5; outline-offset:
 .group-roster li small { flex: none; color: #cbe1a7; font-size: 10px; }
 .friend-group-members { list-style: none; padding: 0; display: grid; gap: 8px; }
 .friend-group-members li { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-@media (max-width:760px) { .group-roster { padding: 10px; } .group-roster ul { grid-template-columns: 1fr; } .hud-tl > .pill:first-child .pill-title { display: none; } }
-.hud-tl:has(.group-roster) > .pill:first-child .pill-title, .hud-tl:has(.group-roster) > .pill:first-child .pill-sub { display: none; }
+@media (max-width:760px) { .group-roster { padding: 10px; } .group-roster ul { grid-template-columns: 1fr; } }
+.hud-tl:has(.group-roster) > .pill:first-child .pill-sub { display: none; }
 @media (max-width:760px) { .hud-tl:has(.group-roster) { max-width: 180px; } }
 .minimap-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding-top: 10px; margin-top: 8px; border-top: 1px solid var(--glass-line); font-size: 11px; line-height: 1.5; }
 .minimap-legend > span, .minimap-runners li { display: inline-flex; align-items: center; gap: 6px; }
@@ -1365,14 +1364,25 @@ button.room-presence:focus-visible { outline: 2px solid #fff6d5; outline-offset:
 }
 
 /* Home fits one screen on desktop: hero on top, settings and course side by side below. */
-.home-hero { padding: 20px 22px; }
+.home-hero { padding: 20px 22px; container-type: inline-size; }
 .home-hero-heading h2 { font-size: 22px; }
 .home-hero-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(190px, 230px); gap: 16px; align-items: stretch; margin-top: 14px; }
 .home-hero-summary { margin: 0; }
 .home-hero-summary div { padding: 10px 12px; }
-.home-hero-summary b { font-size: 17px; }
-.home-hero-summary small { display: block; margin-top: 2px; font-size: 11px; font-weight: 500; color: var(--ink); }
+.home-hero-summary b { font-size: 16px; line-height: 1.35; white-space: nowrap; }
+.home-hero-summary small { line-height: 1.4; word-break: keep-all; display: block; margin-top: 2px; font-size: 11px; font-weight: 500; color: var(--ink); }
 .home-hero-progress { margin: 0 0 10px; }
+@container (max-width: 850px) {
+  .home-hero:not(.resume) .home-hero-body { grid-template-columns: minmax(0, 1fr); }
+  .home-hero .home-hero-summary { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .home-hero .btn.home-hero-action { min-height: 48px; }
+}
+@container (max-width: 620px) {
+  .home-hero .home-hero-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@container (max-width: 290px) {
+  .home-hero .home-hero-summary { grid-template-columns: minmax(0, 1fr); }
+}
 .home-hero-track { margin: 0; }
 .btn.home-hero-action { height: auto; min-height: 60px; }
 .home-lower { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 18px; align-items: stretch; min-height: 0; }

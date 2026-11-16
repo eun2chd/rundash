@@ -17,13 +17,12 @@ test('a delayed/background tick matches normal steps across exhaustion and recov
  assert(Math.abs(normal.stamina-delayed.stamina)<1e-6)
  const frozen={...delayed,paused:true},copy={...frozen}; advanceElapsed(frozen,3600); assert.deepEqual(frozen,copy)
 })
-test('checkpoint restoration counts offline running once and preserves paused state and practice',()=>{
+test('checkpoint restoration excludes offline time and preserves paused state and practice',()=>{
  const base=state(); advanceElapsed(base,50)
  const payload={version:1,runId:'run',savedAt:100000,sim:base,items:[],stations:[],closedStations:[],stats:{}}
  assert(validCheckpoint(payload,'run')); assert(!validCheckpoint(payload,'other'))
- const expected={...base}; advanceElapsed(expected,100)
  const actual=restoreSimulation(state(),payload,200000)
- assert(Math.abs(actual.dist-expected.dist)<1e-6)
+ assert.equal(actual.dist,base.dist); assert.equal(actual.elapsed,base.elapsed); assert.equal(actual.finished,false)
  payload.sim={...base,paused:true,practice:true,timeScale:60}
  const paused=restoreSimulation(state(),payload,200000)
  assert.equal(paused.dist,base.dist); assert.equal(paused.practice,true); assert.equal(paused.timeScale,1)
