@@ -67,7 +67,7 @@ export default function Attendance({ onRun }) {
           </span>
         })}
       </div>
-      <p className="note">하루에 0.5km 이상 달려 기록을 저장하면 도장이 찍혀요. {streakEvery}일 연속마다 보너스 도장을 받아요.</p>
+      <p className="note">하루에 {num(status.rules.minKm)}km 이상 달려 기록을 저장하면 도장이 찍혀요. {streakEvery}일 연속마다 보너스 도장을 받아요.</p>
       {!status.checkedToday && <button type="button" className="btn primary block" onClick={onRun}>오늘 출석하러 달리기</button>}
     </section>
   </div>

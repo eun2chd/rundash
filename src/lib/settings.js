@@ -14,6 +14,9 @@ export const DEFAULT_SETTINGS = {
   // Each km earns a random XP between min and max; the run score adds 1 XP per scorePointsPerXp
   // points (never more than the distance XP). Lv.autoLevel unlocks AUTO running.
   xpPerKmMin: 10, xpPerKmMax: 100, completionBonus: .2, scorePointsPerXp: 10, autoLevel: 80,
+  // Daily check-in: first saved run of at least attendanceMinKm a day (Korea time) earns attendanceDailyXp;
+  // every attendanceStreakEvery consecutive days adds attendanceStreakBonusXp.
+  attendanceMinKm: 5, attendanceDailyXp: 50, attendanceStreakEvery: 7, attendanceStreakBonusXp: 300,
   anonymousMaxKm: 10, maxDistanceKm: 100,
   anonymousPace: 540, anonymousStamina: 100, anonymousRecovery: 60,
   boostCooldown: 90, boostCost: 12, boostMultiplier: 1.5,
@@ -43,7 +46,7 @@ export function normalizeSettings(value) {
   const levels = Array.isArray(next.levels) ? next.levels : []
   const legacy = !levels.length || levels[0].xp === undefined
   next.levels = DEFAULT_SETTINGS.levels.map((row, i) => ({ ...row, ...levels[i], level: i + 1, ...(legacy ? { xp: row.xp } : {}) }))
-  for (const key of ['xpPerKmMin', 'xpPerKmMax', 'scorePointsPerXp', 'autoLevel']) if (typeof next[key] !== 'number') next[key] = DEFAULT_SETTINGS[key]
+  for (const key of ['xpPerKmMin', 'xpPerKmMax', 'scorePointsPerXp', 'autoLevel', 'attendanceMinKm', 'attendanceDailyXp', 'attendanceStreakEvery', 'attendanceStreakBonusXp']) if (typeof next[key] !== 'number') next[key] = DEFAULT_SETTINGS[key]
   delete next.xpBase; delete next.xpStep; delete next.xpPerKm
   return { ...structuredClone(DEFAULT_SETTINGS), ...next }
 }
@@ -60,6 +63,8 @@ export function configureSettings(value) {
 export const SETTING_FIELDS = [
   ['경험치', 'xpPerKmMin', '1km당 최소 경험치', 0, 10000, 1], ['경험치', 'xpPerKmMax', '1km당 최대 경험치', 0, 10000, 1], ['경험치', 'completionBonus', '완주 보너스 비율', 0, 5, .05],
   ['경험치', 'scorePointsPerXp', '점수 보너스: 몇 점당 1 XP', 1, 100000, 1], ['러닝', 'autoLevel', 'AUTO 해금 레벨', 1, 100, 1],
+  ['출석', 'attendanceMinKm', '출석 인정 최소 거리 km', .1, 100, .1], ['출석', 'attendanceDailyXp', '하루 출석 경험치', 0, 100000, 1],
+  ['출석', 'attendanceStreakEvery', '연속 보너스 주기 (일)', 2, 365, 1], ['출석', 'attendanceStreakBonusXp', '연속 보너스 경험치', 0, 1000000, 1],
   ['러닝', 'maxDistanceKm', '회원 최대 거리 km', .5, 100, .5], ['러닝', 'anonymousMaxKm', '익명 최대 거리 km', .5, 10, .5],
   ['익명 러너', 'anonymousPace', '기본 최대 페이스 초/km', 180, 1800, 1], ['익명 러너', 'anonymousStamina', '기본 체력', 10, 1000, 1], ['익명 러너', 'anonymousRecovery', '회복 시간 초', 5, 300, 1],
   ['부스터', 'boostCooldown', '재충전 초', 1, 600, 1], ['부스터', 'boostCost', '소모 체력', 1, 100, 1], ['부스터', 'boostMultiplier', '속도 배율', 1, 3, .1],

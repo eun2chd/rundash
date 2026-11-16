@@ -28,7 +28,7 @@ test('daily attendance from saved runs: once per day, streaks, bonus XP and no p
   const directory=new URL('../supabase/migrations/',import.meta.url)
   for(const file of (await readdir(directory)).filter(f=>f.endsWith('.sql')).sort()) await db.exec(await readFile(new URL(file,directory),'utf8'))
   // Fixed 100 XP per km so rewards are exact; production rolls 10~100 per km.
-  await db.exec(`update public.game_settings set value=value||'{"xpPerKmMin":100,"xpPerKmMax":100}'`)
+  await db.exec(`update public.game_settings set value=value||'{"xpPerKmMin":100,"xpPerKmMax":100,"attendanceMinKm":0.5}'`)
   for(const [id,nickname] of [[a,'Alice'],[b,'Bobby']]) {
    await db.query('insert into auth.users(id,email) values($1,$2)',[id,nickname+'@private.test'])
    await db.query("insert into public.profiles(id,nickname,color,skin) values($1,$2,'#e07b39','#f6d1b0')",[id,nickname])

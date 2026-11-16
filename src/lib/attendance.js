@@ -1,5 +1,6 @@
 // Wording for the daily check-in, from attendance_status() and finish_training_run().
 import { num } from './format.js'
+import { getSettings } from './settings.js'
 
 export function attendanceSummary(status) {
   const { minKm, dailyXp, streakEvery, streakBonusXp } = status.rules
@@ -18,7 +19,7 @@ export function attendanceResultText(attendance) {
   // A retried save of the run that checked in reports its XP again with new: false.
   if (attendance.new || attendance.xp > 0) return { title: `출석 체크 완료 · ${attendance.streak}일 연속`, detail: `+${num(attendance.xp)} XP를 받았어요.` }
   if (attendance.checked) return { title: `오늘은 이미 출석했어요 · ${attendance.streak}일 연속`, detail: '내일 또 달리면 연속 기록이 이어져요.' }
-  return { title: '아직 오늘 출석 전이에요', detail: '0.5km 이상 달리면 출석이 체크돼요.' }
+  return { title: '아직 오늘 출석 전이에요', detail: `${num(getSettings().attendanceMinKm)}km 이상 달리면 출석이 체크돼요.` }
 }
 
 // Calendar cells for a month, Sunday first. Leading/trailing blanks are null.
