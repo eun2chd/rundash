@@ -243,3 +243,11 @@ button.dash-alert:hover { background: #f3f4eb; }
 .admin-content .run-table tr.practice-row td { background: #fbece7; }
 .admin-content .run-table .status-cell .admin-badge + .admin-badge, .admin-content .run-table td .admin-badge { margin-left: 4px; }
 .admin-content .run-table td { white-space: nowrap; }
+
+/* Chat management. */
+.admin-content .chat-table tr.reported-row td { background: #fbece7; }
+.admin-content .chat-table td .admin-badge { margin-left: 4px; }
+.admin-content .chat-table td:first-child { white-space: nowrap; }
+.admin-check { display: flex; align-items: flex-start; gap: 8px; margin: 4px 0 12px; font-size: 14px; font-weight: 500; color: #212121; cursor: pointer; }
+.admin-check input { flex: none; width: 18px; height: 18px; margin: 1px 0 0; accent-color: var(--olive-d); }
+.admin-check.disabled { cursor: not-allowed; }

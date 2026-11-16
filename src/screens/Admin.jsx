@@ -3,6 +3,7 @@ import AdminMemberModal from '../components/AdminMemberModal'
 import AdminActionMenu from '../components/AdminActionMenu'
 import AdminTestAccountModal from '../components/AdminTestAccountModal'
 import AdminReportModal from '../components/AdminReportModal'
+import AdminChatMessageModal from '../components/AdminChatMessageModal'
 import AdminSupportModal from '../components/AdminSupportModal'
 import AdminRunModal, { INTENSITY_LABELS } from '../components/AdminRunModal'
 import { fmtPace, fmtTime } from '../lib/pace'
@@ -22,8 +23,9 @@ import { api } from '../lib/api'
 import { configureSettings, normalizeSettings, DEFAULT_SETTINGS, SETTING_FIELDS } from '../lib/settings'
 import { SUPPORT_TYPES, SUPPORT_STATUS } from './Support'
 
-const TABS = [['dashboard', '대시보드', LuLayoutDashboard], ['members', '회원 관리', LuUsers], ['runs', '러닝 기록', LuFootprints], ['support', '문의 관리', LuMessageCircle], ['reports', '채팅 신고', LuFlag], ['settings', '러닝과 경험치 설정', LuSettings], ['audit', '변경 이력', LuHistory]]
+const TABS = [['dashboard', '대시보드', LuLayoutDashboard], ['members', '회원 관리', LuUsers], ['runs', '러닝 기록', LuFootprints], ['support', '문의 관리', LuMessageCircle], ['reports', '채팅 관리', LuFlag], ['settings', '러닝과 경험치 설정', LuSettings], ['audit', '변경 이력', LuHistory]]
 const date = value => value ? new Date(value).toLocaleString('ko-KR') : '없음'
+const CHAT_FILTERS = [['', '전체 메시지'], ['reported', '신고된 메시지'], ['anonymous', '익명 러너'], ['suspended', '정지된 작성자']]
 const SAVED_RUN_TYPES = [['', '전체 기록'], ['normal', '정상 기록'], ['completed', '완주'], ['partial', '중간 종료'], ['practice', '체험 처리'], ['auto', 'AUTO 사용']]
 const ACTIVE_RUN_TYPES = [['', '진행 중 전체'], ['stale', '24시간 초과']]
 const ACTIONS = { run_closed: '러닝 강제 종료', xp: '경험치 조정', suspend: '계정 이용 정지', restore: '계정 이용 복원', settings: '러닝 설정 변경', support_reply: '문의 답변', chat_remove: '채팅 삭제', chat_dismiss: '신고 기각', account_deleted: '계정 삭제·탈퇴', test_account_created: '테스트 계정 생성', admin_grant: '관리자 지정', admin_revoke: '관리자 해제', password_reset: '비밀번호 초기화' }
@@ -50,6 +52,10 @@ export default function Admin({ confirmAction, currentUserId }) {
   const [runSearch, setRunSearch] = useState('')
   const [runType, setRunType] = useState('')
   const [runView, setRunView] = useState('saved')
+  const [chatView, setChatView] = useState('reports')
+  const [chatQuery, setChatQuery] = useState('')
+  const [chatSearch, setChatSearch] = useState('')
+  const [chatFilter, setChatFilter] = useState('')
   const [runsError, setRunsError] = useState('')
   const [busy, setBusy] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -59,14 +65,14 @@ export default function Admin({ confirmAction, currentUserId }) {
     let live = true
     setLoading(true); setError(''); setSelected(null)
     if (tab === 'dashboard') { setLoading(false); return () => { live = false } }
-    const load = tab === 'members' ? api.adminMembers(search, page, memberType, memberStatus) : tab === 'runs' ? api.adminRunRecords(runSearch, page, runType, runView) : tab === 'support' ? api.adminSupport(filter, page) : tab === 'reports' ? api.adminChatReports(reportFilter, page) : tab === 'audit' ? api.adminAudit(page) : api.getSettings()
+    const load = tab === 'members' ? api.adminMembers(search, page, memberType, memberStatus) : tab === 'runs' ? api.adminRunRecords(runSearch, page, runType, runView) : tab === 'support' ? api.adminSupport(filter, page) : tab === 'reports' ? (chatView === 'messages' ? api.adminChatMessages(chatSearch, page, chatFilter) : api.adminChatReports(reportFilter, page)) : tab === 'audit' ? api.adminAudit(page) : api.getSettings()
     load.then(value => {
       if (!live) return
       if (tab === 'settings') { setSettings(value); setDraft(normalizeSettings(value.value)) }
       else setData(value)
     }).catch(err => { if (live) setError(err.message || '불러오지 못했어요.') }).finally(() => { if (live) setLoading(false) })
     return () => { live = false }
-  }, [tab, search, filter, reportFilter, page, refresh, memberType, memberStatus, runSearch, runType, runView])
+  }, [tab, search, filter, reportFilter, page, refresh, memberType, memberStatus, runSearch, runType, runView, chatView, chatSearch, chatFilter])
   const changeTab = async (next) => {
     if (busy || next === tab) return
     if (dirty && !await confirmAction({ title: '관리 메뉴를 이동할까요?', description: '저장하지 않은 변경사항은 사라져요.' })) return
@@ -98,6 +104,11 @@ export default function Admin({ confirmAction, currentUserId }) {
   const closeRun = async (closeReason) => {
     setBusy(true)
     try { await api.adminCloseRun(selected.id, closeReason); setSelected(null); notify.success('러닝을 종료했어요. 경험치 없이 체험 기록으로 처리됐어요.'); setRefresh(v => v + 1) }
+    finally { setBusy(false) }
+  }
+  const deleteMessage = async (deleteReason, suspendAuthor) => {
+    setBusy(true)
+    try { const result = await api.adminDeleteChatMessage(selected.id, deleteReason, suspendAuthor); setSelected(null); notify.success(result?.suspended ? '메시지를 삭제하고 작성자를 이용 정지했어요.' : '메시지를 삭제했어요.'); setRefresh(v => v + 1) }
     finally { setBusy(false) }
   }
   const resolveReport = async (action, decisionReason) => {
@@ -141,9 +152,24 @@ export default function Admin({ confirmAction, currentUserId }) {
         <input id="run-search" className="admin-toolbar-search" value={runQuery} disabled={busy} onChange={e => setRunQuery(e.target.value)} maxLength={100} placeholder="닉네임 검색" />
         <button className="btn primary" disabled={busy || loading}>검색</button>
       </form>}
-      {tab === 'reports' && <div className="admin-toolbar"><label className="sr-only" htmlFor="report-status">처리 상태</label><select id="report-status" value={reportFilter} disabled={busy} onChange={e => { setReportFilter(e.target.value); setPage(0) }}><option value="">처리 상태 전체</option>{Object.entries(REPORT_STATUS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></div>}
+      {tab === 'reports' && <form className="admin-toolbar" onSubmit={e => { e.preventDefault(); setChatSearch(chatQuery.trim()); setPage(0); setRefresh(v => v + 1) }}>
+        <label className="sr-only" htmlFor="chat-view">채팅 보기</label>
+        <select id="chat-view" value={chatView} disabled={busy} onChange={e => { setData(null); setChatView(e.target.value); setPage(0) }}><option value="reports">신고 내역</option><option value="messages">전체 메시지</option></select>
+        {chatView === 'reports' ? <><label className="sr-only" htmlFor="report-status">처리 상태</label><select id="report-status" value={reportFilter} disabled={busy} onChange={e => { setReportFilter(e.target.value); setPage(0) }}><option value="">처리 상태 전체</option>{Object.entries(REPORT_STATUS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></>
+          : <><label className="sr-only" htmlFor="chat-filter">메시지 필터</label><select id="chat-filter" value={chatFilter} disabled={busy} onChange={e => { setChatFilter(e.target.value); setPage(0) }}>{CHAT_FILTERS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
+          <label className="sr-only" htmlFor="chat-search">메시지 또는 닉네임 검색</label><input id="chat-search" className="admin-toolbar-search" value={chatQuery} disabled={busy} onChange={e => setChatQuery(e.target.value)} maxLength={100} placeholder="메시지 또는 닉네임 검색" />
+          <button className="btn primary" disabled={busy || loading}>검색</button></>}
+      </form>}
       {loading && !data && tab !== 'settings' ? <p role="status">불러오고 있어요…</p> : loading && tab === 'settings' ? <p role="status">불러오고 있어요…</p> : <div className={`admin-results${loading ? ' loading' : ''}`} aria-busy={loading}>
-      {tab === 'reports' && data && <><p className="admin-count">전체 {num(data.total)}건</p><div className="admin-table-wrap"><table className="admin-table"><thead><tr><th scope="col">상태</th><th scope="col">작성자</th><th scope="col">메시지</th><th scope="col">사유</th><th scope="col">신고 수</th><th scope="col">최근 신고</th><th scope="col">관리</th></tr></thead><tbody>{data.items.map(item => <tr key={item.message_id} className={selected?.message_id === item.message_id ? 'selected' : ''}>
+      {tab === 'reports' && chatView === 'messages' && data?.summary?.all !== undefined && <><div className="admin-kpis" aria-label="채팅 요약">{[['all','전체 메시지','개'],['today','오늘 메시지','개'],['reported','처리 대기 신고','건'],['authors','최근 7일 작성자','명']].map(([key,label,unit]) => <section key={key}><span>{label}</span><strong>{num(data.summary[key])}<small>{unit}</small></strong></section>)}</div>
+        <p className="admin-count">검색 결과 {num(data.total)}개</p><div className="admin-table-wrap" role="region" aria-label="전체 채팅 메시지" tabIndex={0}><table className="admin-table chat-table"><thead><tr><th scope="col">작성 일시</th><th scope="col">작성자</th><th scope="col">메시지</th><th scope="col">신고</th><th scope="col">관리</th></tr></thead>
+        <tbody>{data.items.map(item => <tr key={item.id} className={[item.open_reports > 0 && 'reported-row', selected?.id === item.id && 'selected'].filter(Boolean).join(' ')}>
+          <td>{date(item.created_at)}</td><td>{item.nickname}{item.author_admin ? <span className="admin-badge accent">관리자</span> : item.is_test ? <span className="admin-badge test">테스트</span> : item.is_anonymous ? <span className="admin-badge neutral">익명</span> : null}{item.author_suspended && <span className="admin-badge negative">정지</span>}</td>
+          <td className="report-message">{item.message}</td><td className="numeric-cell">{item.open_reports ? `${num(item.open_reports)}건` : '-'}</td>
+          <td><button className="btn ghost" disabled={busy} onClick={() => setSelected(item)}>삭제</button></td></tr>)}
+        {!data.items.length && <tr><td colSpan={5} className="empty-cell">해당하는 메시지가 없어요.</td></tr>}</tbody></table></div>
+        {selected && <AdminChatMessageModal key={selected.id} message={selected} busy={busy} onClose={() => setSelected(null)} onDelete={deleteMessage} />}</>}
+      {tab === 'reports' && chatView === 'reports' && data && <><p className="admin-count">전체 {num(data.total)}건</p><div className="admin-table-wrap"><table className="admin-table"><thead><tr><th scope="col">상태</th><th scope="col">작성자</th><th scope="col">메시지</th><th scope="col">사유</th><th scope="col">신고 수</th><th scope="col">최근 신고</th><th scope="col">관리</th></tr></thead><tbody>{data.items.map(item => <tr key={item.message_id} className={selected?.message_id === item.message_id ? 'selected' : ''}>
 <td>{REPORT_STATUS[item.status]}</td><td>{item.author_nickname}{item.author_suspended && ' (정지됨)'}</td><td className="report-message">{item.message}</td><td>{item.reasons.map(r => REPORT_REASONS[r] || r).join(', ')}</td><td className="numeric-cell">{num(item.report_count)}건</td><td>{date(item.last_reported_at)}</td>
 <td><button className="btn ghost" disabled={busy} onClick={() => setSelected(item)}>{item.status === 'open' ? '처리하기' : '보기'}</button></td></tr>)}</tbody></table></div>{!data.items.length && <p className="account-empty">해당하는 신고가 없어요.</p>}
       {selected && <AdminReportModal key={selected.message_id} report={selected} busy={busy} onClose={() => setSelected(null)} onResolve={resolveReport} />}</>}

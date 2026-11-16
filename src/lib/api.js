@@ -65,6 +65,8 @@ export const api = {
   // The auth user is gone after the RPC, so only the local session can be cleared.
   async deleteAccount(confirmText) { unwrap(await getSupabase().rpc('delete_my_account', { p_confirm: confirmText })); await getSupabase().auth.signOut({ scope: 'local' }) },
   async reportMessage(id, reason) { unwrap(await getSupabase().rpc('report_race_message', { p_message_id: id, p_reason: reason })) },
+  async adminChatMessages(query = '', page = 0, filter = '') { return unwrap(await getSupabase().rpc('admin_chat_messages', { p_query: query, p_page: page, p_filter: filter })) },
+  async adminDeleteChatMessage(id, reason, suspend) { return unwrap(await getSupabase().rpc('admin_delete_chat_message', { p_message_id: id, p_reason: reason, p_suspend: suspend })) },
   async adminChatReports(status = 'open', page = 0) { return unwrap(await getSupabase().rpc('admin_chat_reports', { p_status: status, p_page: page })) },
   async adminResolveChatReport(id, action, reason) { unwrap(await getSupabase().rpc('admin_resolve_chat_report', { p_message_id: id, p_action: action, p_reason: reason })) },
   async getSession() {
