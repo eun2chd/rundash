@@ -15,7 +15,7 @@ test('admin directory filters before pagination, has global counts, and rejects 
       create function auth.jwt() returns jsonb language sql stable as $$ select '{"is_anonymous":false}'::jsonb $$;
       grant usage on schema auth to anon,authenticated;`)
     const dir=new URL('../supabase/migrations/',import.meta.url)
-    const files=(await readdir(dir)).filter(f=>f.endsWith('.sql') && (f <= '202611140009_admin_member_details.sql' || f.startsWith('20261116'))).sort()
+    const files=(await readdir(dir)).filter(f=>f.endsWith('.sql')).sort()
     for (const f of files) await db.exec(await readFile(new URL(f,dir),'utf8'))
     await db.query('insert into auth.users(id,email) values($1,$2),($3,$4)',[boss,'boss@example.test',runner,'runner@example.test'])
     await db.query('insert into public.admin_members(user_id) values($1)',[boss])
@@ -31,6 +31,9 @@ test('admin directory filters before pagination, has global counts, and rejects 
     // Registered members come before anonymous runners, even though the anonymous ones are newer.
     assert.deepEqual(all.items.slice(0,2).map(item => item.is_anonymous),[false,false])
     assert(all.items.slice(2).every(item => item.is_anonymous))
+    // Administrators are listed first, even when a regular member signed up later.
+    await db.exec("reset role; update auth.users set created_at=now()+interval '1 hour' where email='runner@example.test'"); await who(boss)
+    assert.deepEqual((await list()).items.slice(0,2).map(item => [item.id,item.admin]),[[boss,true],[runner,false]])
     assert.deepEqual(all.summary,{total:32,members:2,anonymous:30,suspended:1,test:0})
     assert.equal((await list('',1)).items.length,10)
     assert.equal((await list('',3)).items.length,2)

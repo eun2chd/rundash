@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { api, authErrorMessage } from '../lib/api'
 import Logo from '../components/Logo'
 import Captcha, { captchaEnabled } from '../components/Captcha'
+import PasswordInput from '../components/PasswordInput'
 
 export default function Login({ onLogin, onSignUp, onHelp, confirmAction }) {
   const [email, setEmail] = useState('')
@@ -40,7 +41,7 @@ export default function Login({ onLogin, onSignUp, onHelp, confirmAction }) {
       <form className="card login-card" onSubmit={(e) => { e.preventDefault(); authenticate() }}>
         <h2>시작하기</h2>
         <label className="field"><span>이메일</span><input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="runner@email.com" autoComplete="email" disabled={loading} /></label>
-        <label className="field"><span>비밀번호</span><input type="password" required minLength={1} value={pw} onChange={(e) => setPw(e.target.value)} placeholder="비밀번호를 입력해 주세요" autoComplete="current-password" disabled={loading} /></label>
+        <label className="field"><span>비밀번호</span><PasswordInput required minLength={1} value={pw} onChange={(e) => setPw(e.target.value)} placeholder="비밀번호를 입력해 주세요" autoComplete="current-password" disabled={loading} /></label>
         <Captcha ref={captcha} onToken={setCaptchaToken} />
         {err && <p className="error" role="alert">{err}</p>}
         <button className="btn primary block" disabled={loading || captchaPending}>{loading ? '연결 중…' : captchaPending ? '보안 확인 중…' : '로그인'}</button>

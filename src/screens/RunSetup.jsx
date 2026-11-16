@@ -11,6 +11,7 @@ import { LuDroplet, LuLock, LuPlus, LuPlay } from 'react-icons/lu'
 import PacePickerDialog from '../components/PacePickerDialog'
 import { effortLabel } from '../lib/pacePlans'
 import { cadenceFor, fmtPace, fmtTime, speedKmh, totalRunSec, fmtKm } from '../lib/pace'
+import { num } from '../lib/format'
 
 const DISTANCES = [1, 3, 5, 10, 21.0975, 42.195]
 const DIST_LABEL = { 21.0975: '하프', 42.195: '풀' }
@@ -43,7 +44,7 @@ export default function RunSetup({ profile, config, xp = 0, anonymous = false, s
           <div className="eyebrow">STEP 2</div>
           <h2>오늘의 러닝</h2>
           {resumeOffer && <section className="resume-card" aria-label="이어갈 수 있는 러닝">
-            <div><strong>달리던 러닝이 있어요</strong><span>{((resumeOffer.payload?.sim.dist || 0) / 1000).toFixed(2)} / {resumeOffer.session.target_km} km · {resumeOffer.payload?.sim.paused ? '일시정지 중' : '달리는 중'}</span></div>
+            <div><strong>달리던 러닝이 있어요</strong><span>{num((resumeOffer.payload?.sim.dist || 0) / 1000, 2)} / {num(resumeOffer.session.target_km)} km · {resumeOffer.payload?.sim.paused ? '일시정지 중' : '달리는 중'}</span></div>
             <button type="button" className="btn primary" disabled={starting} onClick={onResume}><LuPlay /> 이어서 달리기</button>
             <small>새 러닝을 시작하면 이전 러닝은 이어갈 수 없어요.</small>
           </section>}

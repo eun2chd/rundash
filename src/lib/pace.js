@@ -1,4 +1,5 @@
 // 페이스/시간 계산 유틸
+import { num } from './format.js'
 export const toPaceSec = (min, sec) => min * 60 + sec
 export const speedMps = (paceSec) => 1000 / paceSec // m/s
 export const speedKmh = (paceSec) => 3600 / paceSec
@@ -26,5 +27,5 @@ export function fmtPace(paceSec) {
 }
 
 export function fmtKm(km) {
-  return Number.isInteger(km) ? `${km}` : km.toFixed(km < 10 ? 2 : 1)
+  return Number.isInteger(km) ? num(km) : num(km, km < 10 ? 2 : 1)
 }

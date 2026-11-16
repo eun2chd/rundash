@@ -1,4 +1,5 @@
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
+import { num } from './format.js'
 
 // '2026-11-09' -> '11.9 (월)'. Dates come from the server as plain KST calendar days.
 export function formatDay(iso) {
@@ -12,7 +13,7 @@ export function timeUntil(target, now = Date.now()) {
   return days ? `${days}일 ${hours}시간` : hours ? `${hours}시간 ${minutes % 60}분` : `${minutes % 60}분`
 }
 
-export const formatKm = (km) => `${Number(km).toFixed(2)}km`
+export const formatKm = (km) => `${num(km, 2)}km`
 
 export const RANKING_BOARDS = {
   week: { label: '주간', periods: ['이번 주', '지난주'], rule: '매주 월요일 0시(한국 시간)에 새로 시작해요. 정식 계정으로 저장한 러닝 거리를 합산하고, 같은 거리라면 먼저 달성한 러너가 앞서요.' },
@@ -25,6 +26,6 @@ export const periodLabel = (kind, offset) => RANKING_BOARDS[kind].periods?.[offs
 
 // Main number and caption for a row on each board.
 export function boardValue(kind, row) {
-  if (kind === 'level') return { main: `Lv.${row.level}`, sub: `${Number(row.xp).toLocaleString('ko-KR')} XP` }
-  return { main: formatKm(row.km), sub: `${row.runs}회 달림` }
+  if (kind === 'level') return { main: `Lv.${row.level}`, sub: `${num(row.xp)} XP` }
+  return { main: formatKm(row.km), sub: `${num(row.runs)}회 달림` }
 }

@@ -23,6 +23,7 @@ import WeatherDashboard from './WeatherDashboard'
 import { weatherAt } from '../lib/weather'
 import { ACTIVITY_GROUPS } from '../lib/activities'
 import HudPanelManager, { HUD_PANELS } from './HudPanelManager'
+import { num } from '../lib/format'
 
 function savedPanels() {
   try { return JSON.parse(localStorage.getItem('rundash:hud-panels') || '{}') || {} } catch { return {} }
@@ -128,7 +129,7 @@ export default function Hud({
             <LuDroplet />
             {activeStation
               ? `보급소 ${activeStation.n} 도착. 지금 챙기세요`
-              : `다음 보급소 ${nextStation.n} · ${Math.round(nextStation.dist - t.dist)}m`}
+              : `다음 보급소 ${nextStation.n} · ${num(Math.round(nextStation.dist - t.dist))}m`}
           </div>
         ) : (
           <div className="pill info-pill dim"><LuDroplet /> 남은 보급소 없음</div>
@@ -155,7 +156,7 @@ export default function Hud({
                 {st.label}
                 {!t.resting && slowPct > 0 ? ` · 속도 -${slowPct}%` : ''}
               </span>
-              <b>{Math.round(t.stamina)} / {s.maxStamina}</b>
+              <b>{num(Math.round(t.stamina))} / {num(s.maxStamina)}</b>
             </div>
             <div className="stamina-bar">
               <div className="stamina-fill" style={{ width: `${stPct}%` }} />
@@ -176,7 +177,7 @@ export default function Hud({
             <div className="stat-div" />
             <div>
               <div className="stat-label">거리</div>
-              <div className="stat-big">{km.toFixed(2)}<small> / {config.distanceKm} km</small></div>
+              <div className="stat-big">{num(km, 2)}<small> / {num(config.distanceKm)} km</small></div>
             </div>
             <div className="stat-div" />
             <div>
@@ -207,7 +208,7 @@ export default function Hud({
         <RoomPresence room={room} />
       </div>
 
-      {import.meta.env.DEV && <DeveloperDebug timeScale={timeScale} onTimeScale={onTimeScale} practice={t.practice} level={config.level} stamina={t.stamina} maxStamina={s.maxStamina} />}
+      {import.meta.env.DEV && <DeveloperDebug timeScale={timeScale} onTimeScale={onTimeScale} practice={t.practice} level={config.level} stamina={t.stamina} maxStamina={num(s.maxStamina)} />}
 
       {/* 하단 */}
       <div className="hud-bc">

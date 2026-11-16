@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { LuFlag, LuTrophy } from 'react-icons/lu'
 import { fmtTime } from '../lib/pace'
+import { num } from '../lib/format'
 
 const CONFETTI_COLORS = ['#e07b39', '#5f6b3c', '#f4c95d', '#fff8e6', '#7cb7a3']
 
@@ -22,7 +23,7 @@ export default function FinishCelebration({ distanceKm, elapsedSec, onResults })
         <div className="finish-trophy" aria-hidden="true"><LuTrophy /></div>
         <div className="eyebrow">FINISH</div>
         <h2 id="finish-title">완주했어요!</h2>
-        <p className="finish-stats"><b>{distanceKm.toFixed(2)}km</b> · {fmtTime(elapsedSec)}</p>
+        <p className="finish-stats"><b>{num(distanceKm, 2)}km</b> · {fmtTime(elapsedSec)}</p>
         <p>결과 화면으로 이동해서 경험치와 기록을 확인할까요?</p>
         <div className="finish-actions">
           <button type="button" className="btn ghost" disabled={busy} onClick={() => setMinimized(true)}>조금 더 즐기기</button>

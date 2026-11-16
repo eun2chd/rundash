@@ -1,5 +1,6 @@
 import { fmtPace, fmtTime } from './pace.js'
 import { progressionFor } from './progression.js'
+import { num } from './format.js'
 
 export const SHARE_URL = 'https://www.rundash.run'
 export const CARD_WIDTH = 1080
@@ -20,12 +21,12 @@ export function shareCardContent({ result, profile, persisted, now = new Date() 
     stats: [
       ['시간', fmtTime(result.elapsedSec || 0)],
       ['평균 페이스', result.distanceKm > 0 ? `${fmtPace(result.paceSec)}/km` : '없음'],
-      ['점수', `${Math.round(result.score || 0).toLocaleString('ko-KR')}pt`],
+      ['점수', `${num(Math.round(result.score || 0))}pt`],
     ],
-    reward: persisted && !practice && growth.xpEarned > 0 ? `+${growth.xpEarned.toLocaleString('ko-KR')} XP` : '',
+    reward: persisted && !practice && growth.xpEarned > 0 ? `+${num(growth.xpEarned)} XP` : '',
     levelUp: persisted && growth.levelAfter > growth.levelBefore ? `LEVEL UP Lv.${growth.levelBefore} → Lv.${growth.levelAfter}` : '',
     date: `${now.getFullYear()}.${pad(now.getMonth() + 1)}.${pad(now.getDate())}`,
-    shareText: `Run dash에서 ${Number(result.distanceKm || 0).toFixed(2)}km ${result.completed ? '완주했어요' : '달렸어요'}! 나만의 캐릭터와 같이 달려요.`,
+    shareText: `Run dash에서 ${num(result.distanceKm || 0, 2)}km ${result.completed ? '완주했어요' : '달렸어요'}! 나만의 캐릭터와 같이 달려요.`,
   }
 }
 

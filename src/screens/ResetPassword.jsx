@@ -2,6 +2,7 @@ import { isValidPassword, PASSWORD_RULE } from '../lib/password'
 import { useState } from 'react'
 import { api } from '../lib/api'
 import Logo from '../components/Logo'
+import PasswordInput from '../components/PasswordInput'
 
 export default function ResetPassword({ validSession, onDone, onRequestNew, confirmAction }) {
   const [password, setPassword] = useState('')
@@ -30,8 +31,8 @@ export default function ResetPassword({ validSession, onDone, onRequestNew, conf
     <section className="card login-card"><div className="eyebrow">RESET PASSWORD</div><h2>새 비밀번호 설정</h2>
       {!validSession ? <><p className="auth-notice" role="alert">재설정 링크가 만료됐거나 유효하지 않아요. 새 링크를 요청해 주세요.</p><button type="button" className="btn primary block" onClick={onRequestNew}>재설정 메일 다시 받기</button></> : <form onSubmit={submit}>
         {!updated && <>
-          <label className="field"><span>새 비밀번호</span><input type="password" required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="8자 이상 · 특수문자 포함" autoComplete="new-password" disabled={loading} /><small>{PASSWORD_RULE}</small></label>
-          <label className="field"><span>새 비밀번호 확인</span><input type="password" required minLength={8} value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder="한 번 더 입력해 주세요" autoComplete="new-password" disabled={loading} /><small>{PASSWORD_RULE}</small></label>
+          <label className="field"><span>새 비밀번호</span><PasswordInput required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="8자 이상 · 특수문자 포함" autoComplete="new-password" disabled={loading} /><small>{PASSWORD_RULE}</small></label>
+          <label className="field"><span>새 비밀번호 확인</span><PasswordInput required minLength={8} value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder="한 번 더 입력해 주세요" autoComplete="new-password" disabled={loading} /><small>{PASSWORD_RULE}</small></label>
         </>}
         {error && <p className="error" role="alert">{error}</p>}
         <button className="btn primary block" disabled={loading || (!updated && (!isValidPassword(password) || password !== confirm))}>{loading ? '처리 중…' : updated ? '로그인 화면으로 이동' : '비밀번호 변경하기'}</button>

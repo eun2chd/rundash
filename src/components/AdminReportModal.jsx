@@ -2,6 +2,7 @@ import { useState } from 'react'
 import Modal from 'react-modal'
 import { LuX, LuShield } from 'react-icons/lu'
 import { REPORT_REASONS } from '../lib/chat'
+import { num } from '../lib/format'
 
 const STATUS = { open: '처리 대기', removed: '삭제함', dismissed: '기각함' }
 const date = value => value ? new Date(value).toLocaleString('ko-KR') : '없음'
@@ -31,7 +32,7 @@ export default function AdminReportModal({ report, busy, onClose, onResolve }) {
         <blockquote className="admin-quote">{report.message}</blockquote>
         <dl className="admin-member-facts">
           <div><dt>처리 상태</dt><dd>{STATUS[report.status]}</dd></div>
-          <div><dt>신고 수</dt><dd>{report.report_count}건</dd></div>
+          <div><dt>신고 수</dt><dd>{num(report.report_count)}건</dd></div>
           <div><dt>신고 사유</dt><dd>{report.reasons.map(r => REPORT_REASONS[r] || r).join(', ')}</dd></div>
           <div><dt>채팅방 표시</dt><dd>{report.message_exists ? '표시 중' : '삭제됨'}</dd></div>
           <div><dt>작성</dt><dd>{date(report.message_created_at)}</dd></div>

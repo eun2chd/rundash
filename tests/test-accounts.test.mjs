@@ -55,7 +55,8 @@ test('admins create confirmed test accounts that stay out of rankings, and manag
    await identity(boss); await assert.rejects(create('qa2@example.com','test-pass!1','테스터'),/이미 사용 중인 닉네임/)
   })
   await t.test('test accounts are listed separately and left out of member statistics',async()=>{
-   await db.exec('reset role'); await db.query("insert into public.profiles(id,nickname,color,skin) values($1,'테스터','#e07b39','#f6d1b0')",[testId])
+   // The runner is created with the account, so the console shows the nickname right away.
+   await db.exec('reset role'); assert.equal(await scalar('select nickname value from public.profiles where id=$1',[testId]),'테스터')
    await identity(boss)
    const all=await directory()
    assert.deepEqual(all.summary,{ total: 3, members: 2, anonymous: 1, suspended: 0, test: 1 })

@@ -3,6 +3,7 @@ import { useRef, useState } from 'react'
 import { api, authErrorMessage } from '../lib/api'
 import Logo from '../components/Logo'
 import Captcha, { captchaEnabled } from '../components/Captcha'
+import PasswordInput from '../components/PasswordInput'
 
 const POLICY_VERSION = '2026-11-15'
 
@@ -106,8 +107,8 @@ export default function SignUp({ onLogin, onBack, onVerify, confirmAction }) {
             <small id="nickname-status" className={nicknameError ? 'warn' : ''} role="status">{nicknameError || (available ? '사용할 수 있는 닉네임이에요.' : checking ? '닉네임을 확인하고 있어요.' : '닉네임을 입력한 뒤 중복 확인을 눌러주세요.')}</small>
           </div>
           <label className="field"><span>이메일</span><input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="runner@email.com" autoComplete="email" disabled={loading} /></label>
-          <label className="field"><span>비밀번호</span><input type="password" required minLength={8} value={password} onChange={(e) => { setPassword(e.target.value); setError('') }} placeholder="8자 이상 · 특수문자 포함" autoComplete="new-password" disabled={loading} /><small>{PASSWORD_RULE}</small></label>
-          <label className="field"><span>비밀번호 확인</span><input type="password" required minLength={8} value={passwordConfirm} onChange={(e) => { setPasswordConfirm(e.target.value); setError('') }} placeholder="비밀번호를 한 번 더 입력해 주세요" autoComplete="new-password" aria-invalid={passwordMismatch} aria-describedby="signup-password-status" disabled={loading} /><small id="signup-password-status" className={passwordMismatch ? 'warn' : ''} role="status">{passwordMismatch ? '비밀번호가 서로 달라요.' : passwordsMatch ? '비밀번호가 일치해요.' : '같은 비밀번호를 한 번 더 입력해 주세요.'}</small></label>
+          <label className="field"><span>비밀번호</span><PasswordInput required minLength={8} value={password} onChange={(e) => { setPassword(e.target.value); setError('') }} placeholder="8자 이상 · 특수문자 포함" autoComplete="new-password" disabled={loading} /><small>{PASSWORD_RULE}</small></label>
+          <label className="field"><span>비밀번호 확인</span><PasswordInput required minLength={8} value={passwordConfirm} onChange={(e) => { setPasswordConfirm(e.target.value); setError('') }} placeholder="비밀번호를 한 번 더 입력해 주세요" autoComplete="new-password" aria-invalid={passwordMismatch} aria-describedby="signup-password-status" disabled={loading} /><small id="signup-password-status" className={passwordMismatch ? 'warn' : ''} role="status">{passwordMismatch ? '비밀번호가 서로 달라요.' : passwordsMatch ? '비밀번호가 일치해요.' : '같은 비밀번호를 한 번 더 입력해 주세요.'}</small></label>
           <fieldset className="signup-agreements" disabled={loading}>
             <legend className="sr-only">가입 동의</legend>
             <label><input type="checkbox" checked={agreements.age} onChange={toggleAgreement('age')} /> <span>(필수) 만 14세 이상입니다.</span></label>

@@ -47,6 +47,7 @@ export const api = {
   async adminSupport(status = '', page = 0) { return unwrap(await getSupabase().rpc('admin_support', { p_status: status, p_page: page })) },
   async adminReply(id, status, reply) { unwrap(await getSupabase().rpc('admin_reply_support', { p_id: id, p_status: status, p_reply: reply })) },
   async adminSaveSettings(value, version) { return unwrap(await getSupabase().rpc('admin_save_settings', { p_value: value, p_version: version })) },
+  async adminDashboard() { return unwrap(await getSupabase().rpc('admin_dashboard')) },
   async adminAudit(page = 0) { return unwrap(await getSupabase().rpc('admin_audit_list', { p_page: page })) },
   async signIn({ email, password, captchaToken }) { return unwrap(await getSupabase().auth.signInWithPassword({ email, password, options: { captchaToken } })).user },
   async signUp({ email, password, nickname, consent, captchaToken }) { if (!isValidPassword(password)) throw new Error('비밀번호는 8자 이상, 특수문자를 1개 이상 포함해 주세요.'); return unwrap(await getSupabase().auth.signUp({ email, password, options: { emailRedirectTo: window.location.origin, data: { nickname, consent }, captchaToken } })) },

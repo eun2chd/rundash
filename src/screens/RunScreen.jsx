@@ -32,6 +32,7 @@ import { getActivity } from '../lib/activities'
 import FinishLine, { FINISH_VISIBLE_M } from '../three/FinishLine'
 import FinishCelebration from '../components/FinishCelebration'
 import RhythmSpeedEffects from '../components/RhythmSpeedEffects'
+import { num } from '../lib/format'
 
 
 // 시뮬레이션 진행: 거리·체력·탈진/회복 (배속 적용)
@@ -373,12 +374,12 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
     const pts = Math.round(t.points * mult)
     stats.current.score += pts
     stats.current.collected++
-    let msg = `${t.label} +${pts}pt`
+    let msg = `${t.label} +${num(pts)}pt`
     if (t.restore) {
       const before = s.stamina
       s.stamina = Math.min(s.maxStamina, s.stamina + t.restore)
       stats.current.supplies++
-      msg = `${t.label} · 체력 +${Math.round(s.stamina - before)}`
+      msg = `${t.label} · 체력 +${num(Math.round(s.stamina - before))}`
     } else {
       stats.current.medals++
     }
@@ -486,7 +487,7 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
     const my = s.dist
     if (!flags.current.finishNear && !s.finished && totalM > FINISH_VISIBLE_M * 2 && totalM - my <= FINISH_VISIBLE_M) {
       flags.current.finishNear = true
-      toast(`결승선이 보여요! ${Math.round(totalM - my)}m 남았어요`, 'km', LuFlag)
+      toast(`결승선이 보여요! ${num(Math.round(totalM - my))}m 남았어요`, 'km', LuFlag)
     }
     const currentWeather = weatherAt(s.weatherTimeMs)
     if (currentWeather.epoch !== weatherEpoch.current) {
@@ -504,7 +505,7 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
     if (ready && kmPassed > distancePaceReport.current) {
       distancePaceReport.current = kmPassed
       const pace = s.resting || s.speedMult <= 0 ? '회복 중' : `${fmtPace(1000 / (s.speed * s.speedMult))}/km`
-      toast(`${kmPassed}km 통과! · 현재 페이스 ${pace} · ${BIOMES[bi].name} 구간`, 'km', LuFootprints)
+      toast(`${num(kmPassed)}km 통과! · 현재 페이스 ${pace} · ${BIOMES[bi].name} 구간`, 'km', LuFootprints)
     }
 
     // 지나친 보급소는 끝
@@ -544,7 +545,7 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
     if (!s.resting && s.stamina / s.maxStamina < .25 && !flags.current.low) {
       flags.current.low = true
       const next = stations.find((st) => st.dist + STAMINA.stationGrabAfterM > my)
-      toast(next ? `체력이 바닥나고 있어요. 보급소 ${next.n}까지 ${Math.max(0, Math.round(next.dist - my))}m` : '체력이 바닥나고 있어요', 'warn', LuBatteryWarning)
+      toast(next ? `체력이 바닥나고 있어요. 보급소 ${next.n}까지 ${num(Math.max(0, Math.round(next.dist - my)))}m` : '체력이 바닥나고 있어요', 'warn', LuBatteryWarning)
     }
     if (s.stamina / s.maxStamina >= .35) flags.current.low = false
 
@@ -565,17 +566,27 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, confir
     const id = setInterval(() => loopRef.current(), 250)
     return () => clearInterval(id)
   }, [])
-  // AUTO rhythm: watch the beat closely and hit it inside the PERFECT window once per beat.
+  // AUTO rhythm: sleep until the centre of the next beat, then hit it inside the PERFECT window.
+  // One timer per beat instead of polling; while paused or resting it re-checks every half second.
   useEffect(() => {
     if (!auto || !ready) return
-    const id = setInterval(() => {
+    let timer
+    const step = () => {
       const s = sim.current
-      if (s.finished || s.paused || s.resting || manualPending.current || exitPending.current) return
-      tick()
-      const frame = rhythmFrame(rhythm.current)
-      if (frame.cycle !== rhythm.current.lastIdx && frame.offset <= RHYTHM_WINDOWS.perfect * .8) handlers.current.hitBeat()
-    }, 15)
-    return () => clearInterval(id)
+      let wait = 500
+      if (!s.finished && !s.paused && !s.resting && !manualPending.current && !exitPending.current) {
+        tick()
+        const r = rhythm.current, frame = rhythmFrame(r)
+        if (frame.cycle !== r.lastIdx && frame.offset <= RHYTHM_WINDOWS.perfect * .8) handlers.current.hitBeat()
+        // The beat centre sits at phase .5; aim for this cycle's centre if it is still ahead, else the next one.
+        const centre = (frame.cycle + .5) * r.period
+        const target = r.elapsed < centre && frame.cycle !== r.lastIdx ? centre : centre + r.period
+        wait = Math.max(5, (target - r.elapsed) * 1000)
+      }
+      timer = setTimeout(step, Math.min(wait, 500))
+    }
+    step()
+    return () => clearTimeout(timer)
   }, [auto, ready, tick])
 
   return (

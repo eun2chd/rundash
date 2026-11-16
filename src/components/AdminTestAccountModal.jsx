@@ -3,6 +3,7 @@ import Modal from 'react-modal'
 import { LuFlaskConical, LuX } from 'react-icons/lu'
 import { api } from '../lib/api'
 import { isValidPassword, PASSWORD_RULE } from '../lib/password'
+import PasswordInput from './PasswordInput'
 
 const NICKNAME = /^[가-힣a-zA-Z0-9_]{2,10}$/
 
@@ -32,8 +33,8 @@ export default function AdminTestAccountModal({ onClose, onCreated }) {
     <div className="admin-test-scope"><LuFlaskConical aria-hidden="true" /><ul><li>이메일 인증 없이 바로 로그인할 수 있어요.</li><li>주간·월간·누적·레벨 랭킹과 회원 통계에 포함되지 않아요.</li><li>회원 목록에는 ‘테스트’로 표시되고, 다 쓰면 계정 삭제로 정리할 수 있어요.</li></ul></div>
       <label className="field"><span>이메일</span><input type="email" autoComplete="off" required value={form.email} disabled={working} onChange={set('email')} placeholder="qa1@example.com" /></label>
       <label className="field"><span>닉네임</span><input autoComplete="off" required minLength={2} maxLength={10} value={form.nickname} disabled={working} onChange={set('nickname')} placeholder="2~10자 · 한글, 영문, 숫자, _" /></label>
-      <label className="field"><span>비밀번호</span><input type="password" autoComplete="new-password" required value={form.password} disabled={working} onChange={set('password')} /><small>{PASSWORD_RULE}</small></label>
-      <label className="field"><span>비밀번호 확인</span><input type="password" autoComplete="new-password" required value={form.repeat} disabled={working} onChange={set('repeat')} />{form.repeat && form.password !== form.repeat && <small role="status">비밀번호가 서로 달라요.</small>}</label>
+      <label className="field"><span>비밀번호</span><PasswordInput autoComplete="new-password" required value={form.password} disabled={working} onChange={set('password')} /><small>{PASSWORD_RULE}</small></label>
+      <label className="field"><span>비밀번호 확인</span><PasswordInput autoComplete="new-password" required value={form.repeat} disabled={working} onChange={set('repeat')} />{form.repeat && form.password !== form.repeat && <small role="status">비밀번호가 서로 달라요.</small>}</label>
       {error && <p className="error" role="alert">{error}</p>}
     </div>
       <footer className="admin-modal-footer"><button type="button" className="btn ghost" disabled={working} onClick={onClose}>취소</button><button className="btn primary" disabled={working || !valid}>{working ? '만드는 중…' : '테스트 계정 만들기'}</button></footer>

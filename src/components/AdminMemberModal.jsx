@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import Modal from 'react-modal'
+import NumberInput from './NumberInput'
+import { num } from '../lib/format'
 import { LuX, LuShield, LuKeyRound } from 'react-icons/lu'
 
 export const TEMP_PASSWORD = 'rundash123!'
@@ -28,7 +30,7 @@ function blockReason(action, member) {
 // Admin member dialog. Layout: header (title, close) / scrolling body / footer (actions).
 export default function AdminMemberModal({ member, action, runs, runsError, busy, onClose, onApply }) {
   const [reason, setReason] = useState('')
-  const [xp, setXp] = useState(String(member.xp || 0))
+  const [xp, setXp] = useState(Number(member.xp) || 0)
   const [error, setError] = useState('')
   const [confirmText, setConfirmText] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -55,9 +57,9 @@ export default function AdminMemberModal({ member, action, runs, runsError, busy
     {action === 'details' ? <>
       <div className="admin-modal-body">
         {identity}{description}
-        <dl className="admin-member-facts"><div><dt>가입 유형</dt><dd>{member.is_test ? '테스트' : member.is_anonymous ? '익명' : '회원'}</dd></div><div><dt>계정 상태</dt><dd>{member.suspended ? '이용 정지' : '정상'}</dd></div><div><dt>총 경험치</dt><dd>{Number(member.xp).toLocaleString()} XP</dd></div><div><dt>누적 거리</dt><dd>{Number(member.total_distance_km).toFixed(2)} km</dd></div><div><dt>가입일</dt><dd>{date(member.created_at)}</dd></div><div><dt>최근 접속</dt><dd>{date(member.last_sign_in_at)}</dd></div></dl>
+        <dl className="admin-member-facts"><div><dt>가입 유형</dt><dd>{member.is_test ? '테스트' : member.is_anonymous ? '익명' : '회원'}</dd></div><div><dt>계정 상태</dt><dd>{member.suspended ? '이용 정지' : '정상'}</dd></div><div><dt>총 경험치</dt><dd>{num(member.xp)} XP</dd></div><div><dt>누적 거리</dt><dd>{num(member.total_distance_km, 2)} km</dd></div><div><dt>가입일</dt><dd>{date(member.created_at)}</dd></div><div><dt>최근 접속</dt><dd>{date(member.last_sign_in_at)}</dd></div></dl>
         {member.suspended && <p className="admin-action-warning">정지 사유: {member.reason || '기록 없음'}</p>}
-        <section className="admin-modal-runs"><h3>최근 러닝 기록</h3>{runsError ? <p role="alert">{runsError}</p> : !runs ? <p role="status">러닝 기록을 불러오고 있어요…</p> : <><p>전체 {runs.total}건 중 최근 10건</p>{runs.items.map(run => <article className="member-run" key={run.id}><strong>{Number(run.details.distanceKm || 0).toFixed(2)}km · {run.details.completed ? '완주' : '중간 종료'}</strong><p>{date(run.created_at)} · {run.details.practice ? '개발 체험' : `+${run.details.growth?.xpEarned || 0} XP`}</p></article>)}{!runs.items.length && <p className="account-empty">저장된 러닝 기록이 없어요.</p>}</>}</section>
+        <section className="admin-modal-runs"><h3>최근 러닝 기록</h3>{runsError ? <p role="alert">{runsError}</p> : !runs ? <p role="status">러닝 기록을 불러오고 있어요…</p> : <><p>전체 {num(runs.total)}건 중 최근 10건</p>{runs.items.map(run => <article className="member-run" key={run.id}><strong>{num(run.details.distanceKm || 0, 2)}km · {run.details.completed ? '완주' : '중간 종료'}</strong><p>{date(run.created_at)} · {run.details.practice ? '개발 체험' : `+${num(run.details.growth?.xpEarned || 0)} XP`}</p></article>)}{!runs.items.length && <p className="account-empty">저장된 러닝 기록이 없어요.</p>}</>}</section>
       </div>
       <footer className="admin-modal-footer"><button type="button" className="btn primary" onClick={onClose}>닫기</button></footer>
     </> : <form className="admin-modal-form" onSubmit={submit}>
@@ -66,7 +68,7 @@ export default function AdminMemberModal({ member, action, runs, runsError, busy
         {blocked && <p role="alert" className="admin-action-warning">{blocked}</p>}
         {action === 'reset-password' && !blocked && <div className="admin-reset-password"><LuKeyRound aria-hidden="true" /><div><strong>초기화 후 비밀번호</strong><code>{TEMP_PASSWORD}</code><p>회원에게 이 비밀번호로 로그인한 뒤 마이페이지에서 바로 새 비밀번호로 변경하도록 안내해 주세요. 로그인 중인 기기는 모두 로그아웃돼요.</p></div></div>}
         {action === 'delete' && !blocked && <div className="admin-delete-scope"><strong>함께 삭제되는 정보</strong><ul><li>로그인 계정과 러너 프로필</li><li>러닝 기록, 경험치, 출석 기록</li><li>채팅 메시지, 친구와 차단 목록, 문의 내역</li></ul><p>운영 기록에는 삭제 사실과 사유가 1년간 남아요.</p></div>}
-        {action === 'xp' && <label className="field"><span>변경 후 총 경험치</span><input type="number" required min={0} max={1000000000} step={1} disabled={working || !!blocked} value={xp} onChange={e => setXp(e.target.value)} /><small>현재 {Number(member.xp).toLocaleString()} XP</small></label>}
+        {action === 'xp' && <label className="field"><span>변경 후 총 경험치</span><NumberInput required min={0} max={1000000000} step={1} disabled={working || !!blocked} value={xp} onChange={setXp} /><small>현재 {num(member.xp)} XP</small></label>}
         {action === 'delete' && <label className="field"><span>확인을 위해 <b>삭제</b>를 입력하세요</span><input value={confirmText} autoComplete="off" disabled={working || !!blocked} onChange={e => setConfirmText(e.target.value)} placeholder="삭제" /></label>}
         <label className="field"><span>{action === 'delete' ? '삭제 사유' : action === 'reset-password' ? '초기화 사유' : '변경 사유'} (필수)</span><textarea rows={3} required minLength={2} maxLength={500} disabled={working || !!blocked} value={reason} onChange={e => setReason(e.target.value)} placeholder="사유를 2자 이상 입력하세요" /></label>
         <p className="admin-modal-note"><LuShield aria-hidden="true" /> 사유는 운영 이력에 기록됩니다.</p>

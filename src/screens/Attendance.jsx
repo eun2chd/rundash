@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { LuCalendarCheck, LuChevronLeft, LuChevronRight, LuFlame, LuFootprints } from 'react-icons/lu'
 import { api } from '../lib/api'
 import { attendanceSummary, monthGrid, shiftMonth } from '../lib/attendance'
+import { num } from '../lib/format'
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
 // Attendance launched in November 2026; there is nothing to show before that.
@@ -41,10 +42,10 @@ export default function Attendance({ onRun }) {
       <div className="eyebrow">ATTENDANCE</div>
       <h2><LuCalendarCheck /> 출석 달력</h2>
       <div className="attendance-summary">
-        <div><span>현재 연속</span><b><LuFlame /> {status.streak}일</b></div>
+        <div><span>현재 연속</span><b><LuFlame /> {num(status.streak)}일</b></div>
         <div><span>이번 달 출석</span><b>{month ? `${month.days.length}일` : '…'}</b></div>
         <div><span>최장 연속</span><b>{month ? `${month.longestStreak}일` : '…'}</b></div>
-        <div><span>이번 달 출석 XP</span><b>{month ? `+${monthXp.toLocaleString()}` : '…'}</b></div>
+        <div><span>이번 달 출석 XP</span><b>{month ? `+${num(monthXp)}` : '…'}</b></div>
       </div>
       <p className="attendance-message">{attendanceSummary(status).message}</p>
 
@@ -60,9 +61,9 @@ export default function Attendance({ onRun }) {
           const stamp = stamps.get(day)
           const bonus = stamp && stamp.streak % streakEvery === 0
           const className = ['calendar-day', stamp && 'stamped', bonus && 'bonus', day === status.today && 'today', day > status.today && 'future'].filter(Boolean).join(' ')
-          return <span key={day} role="gridcell" className={className} aria-label={`${Number(day.slice(8))}일${stamp ? ` 출석, ${stamp.streak}일 연속, +${stamp.xp} XP` : ''}${day === status.today ? ', 오늘' : ''}`}>
+          return <span key={day} role="gridcell" className={className} aria-label={`${Number(day.slice(8))}일${stamp ? ` 출석, ${num(stamp.streak)}일 연속, +${num(stamp.xp)} XP` : ''}${day === status.today ? ', 오늘' : ''}`}>
             <span className="calendar-date">{Number(day.slice(8))}</span>
-            {stamp && <span className="calendar-stamp" aria-hidden="true"><LuFootprints />{bonus && <em>+{stamp.xp}</em>}</span>}
+            {stamp && <span className="calendar-stamp" aria-hidden="true"><LuFootprints />{bonus && <em>+{num(stamp.xp)}</em>}</span>}
           </span>
         })}
       </div>

@@ -1,5 +1,6 @@
 import { getSettings, MAX_LEVEL } from './settings.js'
 import { customDrain } from './pacePlans.js'
+import { num } from './format.js'
 export const INTENSITIES = getSettings().intensities
 export const MILESTONES = [
   { level: 5, title: '부스터 해금', description: '8초 동안 속도 50% 증가' },
@@ -58,7 +59,7 @@ export function experienceFor({ distanceKm, completed, practice = false, anonymo
   const min = Math.floor(km * low * bonus), max = Math.floor(km * high * bonus)
   return { min, max, total: Math.floor(km * (low + high) / 2 * bonus) }
 }
-export const xpRangeText = ({ min, max }) => min === max ? `${min.toLocaleString()}` : `${min.toLocaleString()}~${max.toLocaleString()}`
+export const xpRangeText = ({ min, max }) => min === max ? num(min) : `${num(min)}~${num(max)}`
 
 // Level thresholds for a rules object (live settings or an unsaved admin draft): cumulative XP
 // to reach each level, XP needed from the previous level, and roughly how many completed km
