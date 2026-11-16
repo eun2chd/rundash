@@ -308,7 +308,7 @@ export default function App() {
       {screen === 'result' && <Result result={result} profile={profile} persisted={!user.is_anonymous} onAgain={() => navigate('setup')} />}
       {screen === 'mypage' && user && <MyPage user={user} profile={profile} onProfile={setProfile} confirmAction={confirm} onNavigate={navigate} onDeleted={() => { setUser(null); setProfile(null); setAccount({ admin: false, suspended: false }); setNotice('회원 탈퇴가 완료됐어요. 그동안 함께 달려주셔서 고마워요.'); setScreen('login') }} />}
       {screen === 'support' && user && <Support suspended={account.suspended} />}
-      {screen === 'admin' && account.admin && <Admin confirmAction={confirm} />}
+      {screen === 'admin' && account.admin && <Admin confirmAction={confirm} currentUserId={user?.id} />}
       {screen === 'ranking' && user && <Ranking anonymous={user.is_anonymous} onRun={() => navigate(profile ? 'setup' : 'character')} />}
       {screen === 'attendance' && user && !user.is_anonymous && <Attendance onRun={() => navigate('setup')} />}
       </Suspense>
