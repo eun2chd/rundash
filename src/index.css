@@ -1295,3 +1295,127 @@ button.room-presence:focus-visible { outline: 2px solid #fff6d5; outline-offset:
 .password-toggle:hover:not(:disabled) { background: #eef1e6; }
 .password-toggle:disabled { cursor: not-allowed; }
 .password-toggle svg { width: 18px; height: 18px; }
+
+/* ─── 홈 (러닝 첫 화면) ─── */
+/* Two columns: my runner on the left (sticky), one main action column on the right.
+   The page scrolls as a whole; nothing inside scrolls on its own. */
+.home-screen { max-width: 1240px; }
+.home-grid { display: grid; grid-template-columns: minmax(300px, 380px) minmax(0, 1fr); gap: 20px; align-items: start; }
+.home-runner { position: sticky; top: calc(var(--header-height, 64px) + 16px); padding: 0; overflow: hidden; }
+.home-runner-stage { height: 340px; background: #2a2b24; }
+.home-runner-body { padding: 16px; }
+.home-runner .growth-card { margin: 0 0 12px; }
+.home-anonymous-note { margin: 0 0 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: #fff; font-size: 13px; font-weight: 500; line-height: 1.6; color: var(--ink); }
+.home-activity { display: flex; align-items: center; gap: 8px; width: 100%; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: #fff; font: inherit; font-size: 13px; font-weight: 500; text-align: left; color: var(--ink); cursor: pointer; }
+.home-activity:hover { background: #f3f4eb; }
+.home-activity > svg { flex: none; width: 16px; height: 16px; color: var(--olive-d); }
+.home-activity span { flex: 1; min-width: 0; }
+/* Status bubble dialog: header / body / footer. */
+.activity-modal { display: flex; flex-direction: column; width: min(520px, 100%); max-height: calc(100dvh - 32px); outline: none; border: 1px solid var(--line); border-radius: 22px; background: var(--card); color: var(--ink); overflow: hidden; }
+.activity-modal-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 22px; border-bottom: 1px solid var(--line); }
+.activity-modal-header h2 { margin: 0; font-size: 19px; font-weight: 800; }
+.activity-modal-body.activity-picker { flex: 1 1 auto; min-height: 0; overflow-y: auto; margin: 0; padding: 18px 22px; border-top: 0; }
+.activity-modal-footer { display: flex; justify-content: flex-end; padding: 14px 22px; border-top: 1px solid var(--line); }
+.activity-modal-footer .btn { margin: 0; min-width: 96px; }
+.home-main { display: grid; gap: 18px; min-width: 0; }
+.home-hero { padding: 24px; background: #eef1e6; border: 2px solid var(--olive); }
+.home-hero.resume { background: #fff4ea; border-color: var(--accent); }
+.home-hero-heading h2 { display: flex; align-items: center; gap: 10px; margin: 4px 0 0; font-size: 26px; font-weight: 800; letter-spacing: -.02em; color: var(--ink); }
+.home-hero-heading h2 svg { flex: none; color: var(--olive-d); }
+.home-hero.resume .home-hero-heading h2 svg { color: var(--accent); }
+.home-hero-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 18px 0; }
+.home-hero-summary div { padding: 12px 14px; border-radius: 12px; background: #fff; border: 1px solid #c9cfb7; }
+.home-hero-summary span { display: flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 500; color: var(--ink); }
+.home-hero-summary span svg { width: 14px; height: 14px; color: var(--olive-d); }
+.home-hero-summary b { display: block; margin-top: 4px; font-size: 18px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--ink); overflow-wrap: anywhere; }
+.home-hero-progress { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin: 16px 0 8px; }
+.home-hero-progress strong { font-size: 34px; font-weight: 800; letter-spacing: -.03em; font-variant-numeric: tabular-nums; color: var(--ink); }
+.home-hero-progress strong small { font-size: 16px; font-weight: 600; letter-spacing: 0; }
+.home-hero-progress span { font-size: 14px; font-weight: 600; color: var(--ink); }
+.home-hero-track { height: 10px; margin-bottom: 18px; border-radius: 99px; background: #f1d9c3; overflow: hidden; }
+.home-hero-track span { display: block; height: 100%; border-radius: inherit; background: var(--accent); }
+.btn.home-hero-action { display: flex; align-items: center; justify-content: center; gap: 8px; height: 60px; margin: 0; font-size: 18px; font-weight: 800; background: var(--olive-d); }
+.btn.home-hero-action:hover:not(:disabled) { background: #343c1f; }
+.home-hero-link { display: block; margin: 12px auto 0; font-size: 13px; font-weight: 600; color: var(--ink); }
+.home-settings { padding: 22px; }
+.home-section-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.home-section-heading h3 { margin: 0; font-size: 18px; font-weight: 800; color: var(--ink); }
+.home-settings-warn { font-size: 12px; font-weight: 600; color: #a64a12; }
+.home-calc { margin: 6px 0 12px; padding: 14px; }
+.home-settings .btn.ghost.big { margin: 4px 0 0; }
+.card.home-widget { margin: 0; padding: 20px; }
+.course-preview.compact .course-facts { margin: 12px 0; }
+.course-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 14px 0 0; padding: 0; list-style: none; }
+.course-chips li { display: inline-flex; align-items: center; gap: 5px; padding: 5px 9px; border-radius: 99px; font-size: 12px; font-weight: 600; color: var(--course-color); background: var(--course-bg); }
+.course-chips svg { width: 14px; height: 14px; }
+@media (max-width: 1100px) { .home-hero-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 960px) {
+  /* Single column: the main action first, then my runner, settings and widgets. */
+  .home-grid { display: flex; flex-direction: column; gap: 16px; }
+  .home-main { display: contents; }
+  .home-hero { order: 1; }
+  .home-runner { order: 2; position: static; }
+  .home-settings { order: 3; }
+  .home-widget { order: 4; }
+  .home-runner-stage { height: 260px; }
+}
+@media (max-width: 640px) {
+  .home-hero, .home-settings { padding: 18px; }
+  .home-hero-heading h2 { font-size: 22px; }
+}
+
+/* Home fits one screen on desktop: hero on top, settings and course side by side below. */
+.home-hero { padding: 20px 22px; }
+.home-hero-heading h2 { font-size: 22px; }
+.home-hero-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(190px, 230px); gap: 16px; align-items: stretch; margin-top: 14px; }
+.home-hero-summary { margin: 0; }
+.home-hero-summary div { padding: 10px 12px; }
+.home-hero-summary b { font-size: 17px; }
+.home-hero-summary small { display: block; margin-top: 2px; font-size: 11px; font-weight: 500; color: var(--ink); }
+.home-hero-progress { margin: 0 0 10px; }
+.home-hero-track { margin: 0; }
+.btn.home-hero-action { height: auto; min-height: 60px; }
+.home-lower { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 18px; align-items: stretch; min-height: 0; }
+.home-settings { padding: 18px 20px; }
+.home-settings .field { margin-bottom: 14px; }
+.home-settings .intensity-options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.home-settings .intensity-option { padding: 10px 12px; }
+.home-settings .intensity-option > strong { margin-bottom: 3px; }
+.home-settings .intensity-option > small { margin-top: 3px; }
+.home-note { margin: 0; }
+.btn.home-new-run { margin: 12px 0 0; height: 44px; }
+.home-runner .growth-card { padding: 14px; }
+.home-runner .growth-heading { margin-bottom: 8px; }
+.home-runner .growth-caption { margin: 6px 0 10px; }
+.home-runner .next-unlock { margin-top: 10px; padding-top: 10px; }
+@media (min-width: 961px) and (min-height: 680px) {
+  .home-screen { padding-top: 14px; padding-bottom: 14px; }
+  .home-grid { height: calc(100dvh - var(--header-height) - 28px); min-height: 600px; align-items: stretch; }
+  .home-runner { position: static; display: flex; flex-direction: column; height: 100%; }
+  .home-runner-stage { flex: 1 1 auto; min-height: 180px; height: auto; }
+  .home-runner-body { flex: none; }
+  .home-main { grid-template-rows: auto minmax(0, 1fr); height: 100%; }
+  .home-lower > .card { height: 100%; min-height: 0; overflow: auto; scrollbar-width: thin; }
+}
+@media (max-width: 1180px) { .home-hero-body { grid-template-columns: minmax(0, 1fr); } .btn.home-hero-action { min-height: 54px; } }
+@media (max-width: 960px) {
+  .home-lower { display: contents; }
+  .home-hero-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* Home course card: a vertical route from START to FINISH, one row per km of scenery. */
+.course-vertical { position: relative; display: grid; gap: 6px; margin: 14px 0 0; padding: 0; list-style: none; }
+.course-vertical::before { content: ''; position: absolute; left: 14px; top: 14px; bottom: 14px; width: 2px; background: var(--line); }
+.course-vertical li { position: relative; display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; column-gap: 10px; align-items: center; min-height: 34px; padding: 4px 10px 4px 0; border-radius: 10px; color: var(--ink); }
+.course-vertical li[style] { background: var(--course-bg); }
+.course-vertical-icon { z-index: 1; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; color: #fff; background: var(--course-color); }
+.course-vertical-icon svg { width: 15px; height: 15px; }
+.course-vertical li strong { font-size: 13px; font-weight: 700; color: var(--course-color, var(--ink)); }
+.course-vertical li > span:not(.course-vertical-icon):not(.course-vertical-dot) { font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; }
+.course-vertical li em { grid-column: 2 / -1; display: flex; align-items: center; gap: 4px; font-style: normal; font-size: 11px; font-weight: 600; color: var(--ink); }
+.course-vertical li em svg { width: 12px; height: 12px; color: var(--accent); }
+.course-vertical-dot { z-index: 1; justify-self: center; display: grid; place-items: center; width: 14px; height: 14px; border-radius: 50%; background: var(--olive-d); border: 3px solid var(--card); }
+.course-vertical-finish .course-vertical-dot { width: 30px; height: 30px; border: 0; color: var(--cream); background: var(--ink); }
+.course-vertical-finish .course-vertical-dot svg { width: 14px; height: 14px; }
+.course-vertical-more { grid-template-columns: 30px minmax(0, 1fr); }
+.course-vertical-more > span:last-child { grid-column: 2; text-align: left !important; font-size: 12px; font-weight: 500 !important; }

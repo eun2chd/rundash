@@ -6,7 +6,7 @@ import { attendanceSummary } from '../lib/attendance'
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
 
 // Member-only daily check-in card. Hidden when the attendance migration is missing.
-export default function AttendanceCard({ anonymous = false, onOpenCalendar }) {
+export default function AttendanceCard({ anonymous = false, onOpenCalendar, className = '' }) {
   const [status, setStatus] = useState(null)
   useEffect(() => {
     if (anonymous) return
@@ -16,7 +16,7 @@ export default function AttendanceCard({ anonymous = false, onOpenCalendar }) {
   }, [anonymous])
   if (anonymous || !status) return null
   const summary = attendanceSummary(status)
-  return <section className="attendance-card" aria-label="출석 체크">
+  return <section className={`attendance-card${className ? " " + className : ""}`} aria-label="출석 체크">
     <div className="attendance-heading">
       <strong><LuCalendarCheck /> 출석 체크</strong>
       <span className="attendance-streak"><LuFlame />{status.streak}일 연속</span>
