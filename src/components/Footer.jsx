@@ -1,6 +1,14 @@
+import { topicGroups } from '../../seo/navigation.mjs'
+
 // Static pages open in a new tab so the running app and its unsaved state stay put.
 export default function Footer() {
   return <footer className="site-footer"><div className="site-footer-inner">
+    <nav className="topic-links" aria-label="주제별 가이드">
+      {topicGroups.map(({ label, links }) => <div className="topic-link-group" key={label}>
+        <span className="topic-link-label">{label}</span>
+        <ul>{links.map(([slug, name]) => <li key={slug}><a href={`/${slug}`} target="_blank" rel="noopener">{name}</a></li>)}</ul>
+      </div>)}
+    </nav>
     <nav className="site-footer-links" aria-label="안내 문서">
       <a href="/guide" target="_blank" rel="noopener">게임 가이드</a>
       <a href="/terms" target="_blank" rel="noopener">이용약관</a>

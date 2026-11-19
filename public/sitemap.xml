@@ -1,7 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>https://www.rundash.run/</loc><lastmod>2026-11-15</lastmod></url>
-  <url><loc>https://www.rundash.run/guide</loc><lastmod>2026-11-15</lastmod></url>
+  <url><loc>https://www.rundash.run/</loc><lastmod>2026-11-19</lastmod></url>
+  <url><loc>https://www.rundash.run/guide</loc><lastmod>2026-11-19</lastmod></url>
+  <url><loc>https://www.rundash.run/running</loc><lastmod>2026-11-19</lastmod></url>
+  <url><loc>https://www.rundash.run/running-crew</loc><lastmod>2026-11-19</lastmod></url>
+  <url><loc>https://www.rundash.run/run-together</loc><lastmod>2026-11-19</lastmod></url>
+  <url><loc>https://www.rundash.run/running-shoes</loc><lastmod>2026-11-19</lastmod></url>
+  <url><loc>https://www.rundash.run/study</loc><lastmod>2026-11-19</lastmod></url>
+  <url><loc>https://www.rundash.run/study-group</loc><lastmod>2026-11-19</lastmod></url>
+  <url><loc>https://www.rundash.run/healing</loc><lastmod>2026-11-19</lastmod></url>
+  <url><loc>https://www.rundash.run/pomodoro-timer</loc><lastmod>2026-11-19</lastmod></url>
   <url><loc>https://www.rundash.run/terms</loc><lastmod>2026-11-15</lastmod></url>
   <url><loc>https://www.rundash.run/privacy</loc><lastmod>2026-11-15</lastmod></url>
 </urlset>

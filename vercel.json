@@ -5,7 +5,15 @@
   "rewrites": [
     { "source": "/privacy", "destination": "/privacy/index.html" },
     { "source": "/terms", "destination": "/terms/index.html" },
-    { "source": "/guide", "destination": "/guide/index.html" }
+    { "source": "/guide", "destination": "/guide/index.html" },
+    { "source": "/running", "destination": "/running/index.html" },
+    { "source": "/running-crew", "destination": "/running-crew/index.html" },
+    { "source": "/run-together", "destination": "/run-together/index.html" },
+    { "source": "/running-shoes", "destination": "/running-shoes/index.html" },
+    { "source": "/study", "destination": "/study/index.html" },
+    { "source": "/study-group", "destination": "/study-group/index.html" },
+    { "source": "/healing", "destination": "/healing/index.html" },
+    { "source": "/pomodoro-timer", "destination": "/pomodoro-timer/index.html" }
   ],
   "headers": [
     {
