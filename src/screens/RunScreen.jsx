@@ -18,7 +18,7 @@ import { BIOME_ICONS, CHEER_ICONS, CHEER_KEYS, ITEM_ICONS } from '../lib/icons'
 import Hud from '../components/Hud'
 import Loading from '../components/Loading'
 import { judgeRhythm, rhythmFrame, RHYTHM_WINDOWS } from '../lib/rhythm'
-import { autoUnlocked } from '../lib/progression'
+import { autoUnlocked, staminaShare } from '../lib/progression'
 import { applyRhythmBoost } from '../lib/rhythmBoost'
 import useRaceRoom from '../lib/useRaceRoom'
 import { getSettings } from '../lib/settings'
@@ -395,7 +395,7 @@ export default forwardRef(function RunScreen({ profile, config, onFinish, onSusp
     let msg = `${t.label} +${num(pts)}pt`
     if (t.restore) {
       const before = s.stamina
-      s.stamina = Math.min(s.maxStamina, s.stamina + t.restore)
+      s.stamina = Math.min(s.maxStamina, s.stamina + staminaShare(s.maxStamina, t.restore))
       stats.current.supplies++
       msg = `${t.label} · 체력 +${num(Math.round(s.stamina - before))}`
     } else {

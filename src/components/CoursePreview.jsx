@@ -23,18 +23,20 @@ export default function CoursePreview({ distanceKm, compact = false }) {
     <div className="course-facts"><span>{Math.min(Math.ceil(distanceKm), 5)}가지 풍경</span><span>보급소 {stationCount}곳</span><span>1km마다 전환</span></div>
     {!compact && <div className="course-strip" aria-hidden="true">{segments.map(({ km, end, biome }) => <span key={km} style={{ background: COURSE_STYLE[biome.key].color, flex: end - km }} />)}</div>}
     {!compact && <div className="course-axis"><span>START · 0km</span><span>{distanceKm > 10 ? '첫 10km 미리보기' : `FINISH · ${fmtKm(distanceKm)}km`}</span></div>}
-    {compact ? <ol className="course-vertical" aria-label="구간별 풍경">
-      <li className="course-vertical-start"><span className="course-vertical-dot" aria-hidden="true" /><strong>START</strong><span>0km</span></li>
-      {segments.map(({ km, end, biome }) => { const Icon = BIOME_ICONS[biome.key]; const theme = COURSE_STYLE[biome.key]; const station = km + .6 < distanceKm - .08
-        return <li key={km} style={{ '--course-color': theme.color, '--course-bg': theme.bg }}>
-          <span className="course-vertical-icon" aria-hidden="true"><Icon /></span>
-          <strong>{biome.name}</strong>
-          <span>{km}~{fmtKm(end)}km</span>
-          {station && <em><LuDroplet aria-hidden="true" /> {num(km + .6, 1)}km 보급</em>}
-        </li> })}
-      {distanceKm > 10 && <li className="course-vertical-more"><span className="course-vertical-dot" aria-hidden="true" /><span>10km 이후에도 5가지 풍경이 이어져요</span></li>}
-      <li className="course-vertical-finish"><span className="course-vertical-dot" aria-hidden="true"><LuFlag /></span><strong>FINISH</strong><span>{fmtKm(distanceKm)}km</span></li>
-    </ol> : <>
+    {compact ? <div className="course-vertical-scroll" role="region" aria-label="구간별 풍경" tabIndex={0}>
+      <ol className="course-vertical">
+        <li className="course-vertical-start"><span className="course-vertical-dot" aria-hidden="true" /><strong>START</strong><span>0km</span></li>
+        {segments.map(({ km, end, biome }) => { const Icon = BIOME_ICONS[biome.key]; const theme = COURSE_STYLE[biome.key]; const station = km + .6 < distanceKm - .08
+          return <li key={km} style={{ '--course-color': theme.color, '--course-bg': theme.bg }}>
+            <span className="course-vertical-icon" aria-hidden="true"><Icon /></span>
+            <strong>{biome.name}</strong>
+            <span>{km}~{fmtKm(end)}km</span>
+            {station && <em><LuDroplet aria-hidden="true" /> {num(km + .6, 1)}km 보급</em>}
+          </li> })}
+        {distanceKm > 10 && <li className="course-vertical-more"><span className="course-vertical-dot" aria-hidden="true" /><span>10km 이후에도 5가지 풍경이 이어져요</span></li>}
+        <li className="course-vertical-finish"><span className="course-vertical-dot" aria-hidden="true"><LuFlag /></span><strong>FINISH</strong><span>{fmtKm(distanceKm)}km</span></li>
+      </ol>
+    </div> : <>
     <ol className="course-timeline">{segments.map(({ km, end, biome }) => {
       const Icon = BIOME_ICONS[biome.key]
       const theme = COURSE_STYLE[biome.key]

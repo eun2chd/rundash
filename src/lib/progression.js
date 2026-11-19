@@ -34,11 +34,15 @@ export function progressionFor(xp = 0) {
     recoverySec: row.recovery,
     boosterUnlocked: row.boost > 0,
     boosterDuration: row.boost,
-    boosterCooldown: rules.boostCooldown, boosterCost: rules.boostCost,
+    boosterCooldown: rules.boostCooldown, boosterCost: staminaShare(row.stamina, rules.boostCost),
     autoUnlocked: autoUnlocked(level, rules),
     nextUnlock: next ? { level: next.level, title: row.boost ? '부스터 강화' : '부스터 해금', description: `${next.boost}초 가속 · 체력 ${next.stamina}` } : null,
   }
 }
+// Supply restores and the booster cost are stored as a percent of max stamina, so they keep the same
+// weight at every level. Always at least 1 stamina.
+export const staminaShare = (maxStamina, percent) => Math.max(1, Math.round(maxStamina * percent / 100))
+
 export function trainingFor(xp, intensity = 'steady', anonymous = false, customPace = null) {
   const rules = getSettings()
   const growth = anonymous ? { level: null, maxStamina: rules.anonymousStamina, recoverySec: rules.anonymousRecovery, fastestPace: rules.anonymousPace, boosterUnlocked: false } : progressionFor(xp)

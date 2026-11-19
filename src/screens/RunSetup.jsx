@@ -19,7 +19,7 @@ const clamp = (v, a, b) => Math.min(b, Math.max(a, v))
 
 // Home after login. Left: my runner (character, level, status bubble). Right: one main action
 // card (resume or start today's run) on top, the run settings under it, then a compact course
-// summary. The status bubble is picked in a dialog; attendance lives on its own screen. The page scrolls as a whole; no inner scroll areas.
+// summary. The status bubble is picked in a dialog; attendance lives on its own screen.
 export default function RunSetup({ profile, config, xp = 0, anonymous = false, starting = false, onChange, onStart, onOpenAttendance, resumeOffer, onResume }) {
   const [pickingActivity, setPickingActivity] = useState(false)
   const { distanceKm } = config

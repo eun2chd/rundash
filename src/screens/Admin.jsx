@@ -27,6 +27,43 @@ const TABS = [['dashboard', '대시보드', LuLayoutDashboard], ['members', '회
 const date = value => value ? new Date(value).toLocaleString('ko-KR') : '없음'
 // Settings are split into tabs so each screen stays short: [id, label, field groups].
 // The level tables sit on 경험치·레벨 and the intensity table on 러닝·체력.
+const STAMINA_MAX = 100000
+const STAMINA_SAMPLE_LEVELS = [1, 5, 10, 20, 30, 50, 80, 100]
+// Spreads max stamina evenly from Lv.1 to the last level; the admin still saves with 설정 저장.
+const spreadStamina = (levels, first, last) => levels.map((row, index) => ({ ...row, stamina: Math.round(first + index * (last - first) / Math.max(1, levels.length - 1)) }))
+
+function StaminaSpread({ draft, onApply }) {
+  const levels = draft.levels
+  const [first, setFirst] = useState(levels[0].stamina)
+  const [last, setLast] = useState(levels[levels.length - 1].stamina)
+  const valid = Number.isInteger(first) && Number.isInteger(last) && first >= 10 && last <= STAMINA_MAX && first <= last
+  const preview = valid ? spreadStamina(levels, first, last) : levels
+  const step = (last - first) / Math.max(1, levels.length - 1)
+  const fastestDrain = Math.max(...draft.intensities.map(row => row.drain)) * draft.staminaDrain * Math.pow(draft.staminaBasePace / Math.min(...levels.map(row => row.pace)), 1.2)
+  return <section className="settings-group">
+    <h3>레벨별 최대 체력</h3>
+    <p>Lv.1과 Lv.{levels.length}의 최대 체력을 정하면 그 사이 레벨에 같은 간격으로 나눠 넣어요. 적용 후 ‘설정 저장’을 눌러야 반영돼요. 레벨별 값은 경험치·레벨 탭의 표에서 하나씩 고칠 수도 있어요.</p>
+    <div className="stamina-spread">
+      <label>Lv.1 체력<NumberInput aria-label="Lv.1 최대 체력" min={10} max={STAMINA_MAX} step={1} required value={first} onChange={setFirst} /></label>
+      <label>Lv.{levels.length} 체력<NumberInput aria-label={`Lv.${levels.length} 최대 체력`} min={10} max={STAMINA_MAX} step={1} required value={last} onChange={setLast} /></label>
+      <button type="button" className="btn ghost" disabled={!valid} onClick={() => onApply(spreadStamina(levels, first, last))}>균등 배분 적용</button>
+    </div>
+    <p className="stamina-spread-note">{valid ? `레벨마다 약 ${num(step, 1)}씩 늘어요.` : `Lv.1 체력은 10 이상, Lv.${levels.length} 체력은 ${num(STAMINA_MAX)} 이하이면서 Lv.1 이상이어야 해요.`}</p>
+    <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th scope="col">레벨</th><th scope="col">최대 체력</th><th scope="col">보급 없이 달리는 거리</th></tr></thead>
+      <tbody>{STAMINA_SAMPLE_LEVELS.filter(level => level <= levels.length).map(level => { const row = preview[level - 1]; const drain = Math.max(...draft.intensities.map(item => item.drain)) * draft.staminaDrain * Math.pow(draft.staminaBasePace / row.pace, 1.2); return <tr key={level}><th scope="row">Lv.{level}</th><td className="numeric-cell">{num(row.stamina)}</td><td className="numeric-cell">약 {num(row.stamina / drain, 1)}km</td></tr> })}</tbody></table></div>
+    <p className="stamina-spread-note">거리는 가장 빠른 강도로 그 레벨의 최고 페이스를 냈을 때 체력이 0이 될 때까지의 거리예요(최고 페이스 기준 1km당 최대 약 {num(fastestDrain, 1)} 소모). 보급소 회복량(물 {num(draft.waterRestore)}%, 젤 {num(draft.gelRestore)}%)과 부스터 소모({num(draft.boostCost)}%)는 최대 체력에 대한 비율이라, 최대 체력이 늘면 같이 커져요.</p>
+    <h3>체력이 작동하는 방식</h3>
+    <ul className="stamina-rules">
+      <li><b>소모</b> · 1km마다 ‘기본 1km 소모 체력’({num(draft.staminaDrain)})을 기준 페이스 {fmtPace(draft.staminaBasePace)}/km에 맞춰 쓰고, 더 빠르게 달릴수록 더 많이 써요. 강도별 ‘체력 소모 배율’({draft.intensities.map(row => `${row.label} ×${row.drain}`).join(' · ')})이 곱해져요.</li>
+      <li><b>속도 저하</b> · 체력이 최대치의 60% 아래로 내려가면 느려지기 시작하고, 25% 아래에서는 더 크게 느려져요(최대 절반 속도).</li>
+      <li><b>탈진</b> · 체력이 0이 되면 레벨별 ‘회복 시간’ 동안 멈췄다가 최대 체력의 {Math.round(draft.recoverRatio * 100)}%로 다시 달려요.</li>
+      <li><b>보급</b> · 물은 최대 체력의 {num(draft.waterRestore)}%, 젤은 {num(draft.gelRestore)}%를 채워요. 최대 체력을 넘지는 않아요.</li>
+      <li><b>부스터</b> · 한 번 쓸 때 최대 체력의 {num(draft.boostCost)}%를 쓰고, 남은 체력이 그만큼 이하이면 쓸 수 없어요.</li>
+      <li><b>익명 러너</b> · 레벨과 상관없이 ‘기본 체력’({num(draft.anonymousStamina)})을 써요.</li>
+    </ul>
+  </section>
+}
+
 const SETTING_TABS = [['xp', '경험치·레벨', ['경험치']], ['attendance', '출석', ['출석']], ['running', '러닝·체력', ['러닝', '체력', '부스터', '익명 러너']],
   ['course', '코스·보급', ['코스', '보급소']], ['score', '점수·리듬', ['점수', '리듬']], ['chat', '채팅', ['채팅']]]
 const CHAT_FILTERS = [['', '전체 메시지'], ['reported', '신고된 메시지'], ['anonymous', '익명 러너'], ['suspended', '정지된 작성자']]
@@ -228,7 +265,8 @@ export default function Admin({ confirmAction, currentUserId }) {
         {SETTING_TABS.find(([id]) => id === settingsTab)[2].map(group => <section className="settings-group" key={group}><h3>{group}</h3><div className="admin-table-wrap"><table className="admin-table settings-table"><colgroup><col className="settings-col-label" /><col className="settings-col-range" /><col className="settings-col-value" /></colgroup><thead><tr><th scope="col">설정 항목</th><th scope="col">허용 범위</th><th scope="col">설정값</th></tr></thead><tbody>{SETTING_FIELDS.filter(([g]) => g === group).map(([,key,label,min,max,step]) => <tr key={key}><th scope="row">{label}</th><td className="numeric-cell">{num(min)} ~ {num(max)}</td><td><NumberInput aria-label={label} required min={min} max={max} step={step} value={draft[key]} onChange={value => setDraft({ ...draft, [key]: value })} /></td></tr>)}</tbody></table></div></section>)}
         {settingsTab === 'xp' && <section className="settings-group"><h3>레벨별 필요 경험치</h3><p>거리는 1km당 평균 경험치와 완주 보너스 기준이며 점수 보너스는 포함하지 않아요. 누적 경험치는 아래 레벨별 능력치 표에서 수정해요.</p><div className="admin-table-wrap level-table"><table className="admin-table xp-level-table"><thead><tr><th scope="col">레벨</th><th scope="col">누적 필요 경험치</th><th scope="col">이전 레벨에서 필요한 경험치</th><th scope="col">완주 기준 누적 거리 (약)</th><th scope="col">해금</th></tr></thead><tbody>{levelXpTable(draft).map(row => { const boost = draft.levels[row.level - 1]?.boost, before = draft.levels[row.level - 2]?.boost || 0; const unlocks = [boost > before && (before ? `부스터 ${boost}초` : `부스터 해금 ${boost}초`), row.level === FREE_PACE_LEVEL && '자유 페이스 설정', row.level === Number(draft.autoLevel) && 'AUTO 러닝'].filter(Boolean); return <tr key={row.level}><th scope="row">Lv.{row.level}</th><td className="numeric-cell">{num(row.xp)} XP</td><td className="numeric-cell">{row.level === 1 ? '시작' : `+${num(row.gap)} XP`}</td><td className="numeric-cell">{row.km === null ? '계산 불가' : `${num(row.km, undefined, 1)} km`}</td><td>{unlocks.join(' · ') || ''}</td></tr> })}</tbody></table></div></section>}
         {settingsTab === 'running' && <section className="settings-group"><h3>러닝 강도 3가지</h3><p>기본 페이스에 추가할 시간과 체력 소모 배율이에요.</p><div className="admin-table-wrap"><table className="admin-table"><thead><tr><th scope="col">강도</th><th scope="col">이름</th><th scope="col">설명</th><th scope="col">추가 페이스 초/km</th><th scope="col">체력 소모 배율</th></tr></thead><tbody>{draft.intensities.map((effort,index) => <tr key={effort.id}><th scope="row">{effort.id}</th>{[['label','이름','text'],['description','설명','text'],['extraPace','추가 페이스 초/km','number'],['drain','체력 소모 배율','number']].map(([key,label,type]) => <td key={key}>{type === 'number' ? <NumberInput aria-label={effort.id + " " + label} required min={key === 'drain' ? .1 : 0} max={key === 'drain' ? 5 : 600} step={key === 'drain' ? .05 : 1} value={effort[key]} onChange={value => setDraft({ ...draft, intensities: draft.intensities.map((row,i) => i === index ? { ...row, [key]: value } : row) })} /> : <input aria-label={effort.id + " " + label} type={type} required maxLength={key === 'label' ? 20 : 100} min={key === 'drain' ? .1 : 0} max={key === 'drain' ? 5 : 600} step={key === 'drain' ? .05 : 1} value={effort[key]} onChange={e => setDraft({ ...draft, intensities: draft.intensities.map((row,i) => i === index ? { ...row, [key]: type === 'number' && e.target.value !== '' ? Number(e.target.value) : e.target.value } : row) })} />} </td>)}</tr>)}</tbody></table></div></section>}
-        {settingsTab === 'xp' && <section className="settings-group"><h3>레벨별 능력치</h3><p>페이스는 초/km 단위예요. 부스터 지속 시간을 0으로 설정하면 해당 레벨에서는 사용할 수 없어요.</p><div className="admin-table-wrap level-table"><table className="admin-table"><thead><tr><th>레벨</th><th>누적 경험치</th><th>최대 페이스</th><th>최대 체력</th><th>회복 시간 초</th><th>부스터 초</th></tr></thead><tbody>{draft.levels.map((row,index) => <tr key={row.level}><th>Lv.{row.level}</th>{[['xp',0,1000000000000],['pace',180,1800],['stamina',10,1000],['recovery',5,300],['boost',0,60]].map(([key,min,max]) => <td key={key}><NumberInput aria-label={`레벨 ${row.level} ${key}`} min={min} max={max} step={1} required readOnly={key === 'xp' && index === 0} value={row[key]} onChange={value => editLevel(index,key,value)} /></td>)}</tr>)}</tbody></table></div></section>}
+        {settingsTab === 'running' && <StaminaSpread draft={draft} onApply={levels => setDraft({ ...draft, levels })} />}
+        {settingsTab === 'xp' && <section className="settings-group"><h3>레벨별 능력치</h3><p>페이스는 초/km 단위예요. 부스터 지속 시간을 0으로 설정하면 해당 레벨에서는 사용할 수 없어요. 최대 체력은 {num(STAMINA_MAX)}까지 정할 수 있고, 러닝·체력 탭에서 Lv.1~Lv.{draft.levels.length}에 균등하게 나눠 넣을 수 있어요.</p><div className="admin-table-wrap level-table"><table className="admin-table"><thead><tr><th>레벨</th><th>누적 경험치</th><th>최대 페이스</th><th>최대 체력</th><th>회복 시간 초</th><th>부스터 초</th></tr></thead><tbody>{draft.levels.map((row,index) => <tr key={row.level}><th>Lv.{row.level}</th>{[['xp',0,1000000000000],['pace',180,1800],['stamina',10,STAMINA_MAX],['recovery',5,300],['boost',0,60]].map(([key,min,max]) => <td key={key}><NumberInput aria-label={`레벨 ${row.level} ${key}`} min={min} max={max} step={1} required readOnly={key === 'xp' && index === 0} value={row[key]} onChange={value => editLevel(index,key,value)} /></td>)}</tr>)}</tbody></table></div></section>}
       </fieldset></form>}
       {tab !== 'settings' && tab !== 'dashboard' && data && <Pagination page={page} total={data.total} disabled={busy || loading} onChange={setPage} label={`${TABS.find(([id]) => id === tab)[1]} 페이지`} />}
 

@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { experienceFor, progressionFor, trainingFor, xpForLevel, autoUnlocked, xpRangeText } from '../src/lib/progression.js'
+import { experienceFor, progressionFor, trainingFor, xpForLevel, autoUnlocked, xpRangeText, staminaShare } from '../src/lib/progression.js'
 import { DEFAULT_SETTINGS } from '../src/lib/settings.js'
 import { advanceSimulation, activateBooster } from '../src/lib/simulation.js'
 import { drainPerKm } from '../src/lib/stamina.js'
@@ -10,7 +10,7 @@ test('level boundaries, milestones and all three intensities grow consistently',
     const xp = xpForLevel(level)
     const current = progressionFor(xp)
     assert.equal(current.level, level)
-    assert.equal(current.maxStamina, 100 + (level - 1) * 3)
+    assert.equal(current.maxStamina, Math.round(100 + (level - 1) * 9800 / 99))
     if (level > 1) {
       assert.equal(progressionFor(xp - 1).level, level - 1)
       assert.ok(current.fastestPace <= progressionFor(xpForLevel(level - 1)).fastestPace)
@@ -113,4 +113,14 @@ test('level XP table follows the curve for any rules draft', async () => {
   const edited = levelXpTable({ ...draft, levels: draft.levels.map(row => row.level === 2 ? { ...row, xp: 240 } : row) })
   assert.equal(edited[1].xp, 240); assert.equal(edited[1].km, 2)
   assert.equal(levelXpTable({ ...draft, xpPerKmMin: 0, xpPerKmMax: 0 })[4].km, null)
+})
+
+test('booster cost and supply restore scale with max stamina as a percent', () => {
+  const low = progressionFor(xpForLevel(5))
+  const top = progressionFor(xpForLevel(100))
+  assert.equal(low.boosterCost, staminaShare(low.maxStamina, 12))
+  assert.equal(top.boosterCost, 1188)
+  assert.equal(staminaShare(100, 15), 15)
+  assert.equal(staminaShare(9900, 25), 2475)
+  assert.equal(staminaShare(10, 1), 1)
 })
